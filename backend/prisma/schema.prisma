@@ -1,0 +1,88 @@
+generator client {
+    provider = "prisma-client"
+    output   = "../src/generated/prisma"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+enum Role {
+    USER
+}
+
+// user 
+model User {
+    id       String @id @default(cuid())
+    username String @unique
+    email    String @unique
+    password String?
+    role     Role   @default(USER)
+
+    avatarUrl    String?          
+
+    isActive Boolean @default(true)
+
+    failedAttempts Int       @default(0)
+    lockedUntil    DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    refreshTokens  RefreshToken[]
+    passwordResets PasswordReset[]
+}
+
+// Refresh Token 
+model RefreshToken {
+    id        String   @id @default(cuid())
+    tokenHash String   @unique
+    userId    String
+    family    String // UUID grouping all rotations from one login session.
+    expiresAt DateTime
+
+    revoked   Boolean  @default(false) // Set to true on logout or token rotation
+    createdAt DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+}
+
+// Password Reset
+model PasswordReset {
+    id        String   @id @default(cuid())
+    userId    String
+    tokenHash String   @unique // SHA-256 hash of the raw reset token
+    expiresAt DateTime
+    used      Boolean  @default(false) // One-time use enforcement
+    createdAt DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+}
+
+model EmailJob {
+    id            String         @id @default(cuid())
+    type          String
+    recipient     String // destination email address
+    payload       Json // template-specific data (validated by Zod at enqueue time)
+    status        EmailJobStatus @default(PENDING)
+    attempts      Int            @default(0) // how many send attempts have been made
+    lastError     String?
+    providerId    String? // SMTP Message-ID returned by nodemailer (audit / idempotency)
+    lockedAt      DateTime? // set when status=PROCESSING; used for stuck-job recovery
+    nextAttemptAt DateTime? // earliest time the worker may retry (exponential backoff)
+    createdAt     DateTime       @default(now())
+    updatedAt     DateTime       @updatedAt
+
+    @@index([status, nextAttemptAt, createdAt])
+}
+
+enum EmailJobStatus {
+    PENDING
+    PROCESSING
+    SENT
+    FAILED
+}
