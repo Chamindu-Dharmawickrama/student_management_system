@@ -8,32 +8,93 @@ datasource db {
 }
 
 enum Role {
-    USER
+    SCHOOL_ADMIN
+    TEACHER
+    STUDENT
 }
 
-// user 
+enum ExamStatus {
+    DRAFT
+    OPEN
+    CLOSED
+    PUBLISHED
+}
+
+enum MarkSheetStatus {
+    DRAFT
+    SUBMITTED
+    APPROVED
+    REJECTED
+    LOCKED
+}
+
+enum ReportType {
+    STUDENT_MARKSHEET
+    STUDENT_TERM_REPORT
+    CLASS_MARKSHEET
+    CLASS_SUMMARY
+}
+
+enum ReportFormat {
+    PDF
+    EXCEL
+}
+
+enum EmailJobStatus {
+    PENDING
+    PROCESSING
+    SENT
+    FAILED
+}
+
+// ================================================================
+// AUTH & IDENTITY
+// (pre-existing models, extended — still the single source of
+// authentication identity for admins, teachers and students; §23)
+// BR-23, BR-24, BR-25, FR-021, FR-022 : credential lifecycle
+// ================================================================
+
 model User {
-    id       String @id @default(cuid())
-    username String @unique
-    email    String @unique
+    id       String  @id @default(cuid())
+    username String  @unique // students: admission number (OD-09). Teachers/admins: school-defined.
+    email    String  @unique
     password String?
-    role     Role   @default(USER)
+    role     Role
 
-    avatarUrl    String?          
+    authProvider String  @default("local") // local | google
 
-    isActive Boolean @default(true)
+    isActive Boolean @default(true) // BR/E-12/E-13: inactive user must not be able to log in
+
+    mustChangePassword Boolean @default(true) // BR-25 / FR-022: forced change after first login
 
     failedAttempts Int       @default(0)
     lockedUntil    DateTime?
+
+    // Common profile fields shared by admin / teacher / student
+    // (10.3 step 3, 10.4 step 3: "required profile details, including email address")
+    firstName   String
+    lastName    String
+    phone       String?
+    address     String?
+    dateOfBirth DateTime?
+    photoUrl    String?
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
     refreshTokens  RefreshToken[]
     passwordResets PasswordReset[]
+
+    teacherProfile TeacherProfile?
+    studentProfile StudentProfile?
+
+    approvedMarkSheets MarkSheet[] @relation("MarkSheetApprover")
+    generatedReports   Report[]    @relation("ReportGeneratedBy")
+    auditLogs          AuditLog[]  @relation("AuditActor")
+
+    @@index([role])
 }
 
-// Refresh Token 
 model RefreshToken {
     id        String   @id @default(cuid())
     tokenHash String   @unique
@@ -49,7 +110,6 @@ model RefreshToken {
     @@index([userId])
 }
 
-// Password Reset
 model PasswordReset {
     id        String   @id @default(cuid())
     userId    String
@@ -80,9 +140,401 @@ model EmailJob {
     @@index([status, nextAttemptAt, createdAt])
 }
 
-enum EmailJobStatus {
-    PENDING
-    PROCESSING
-    SENT
-    FAILED
+// ================================================================
+// SCHOOL CONFIGURATION
+// §23 — config for THIS single independent deployment (BR-01/BR-02).
+// Treat as a singleton table: the application should ensure only one
+// row ever exists.
+// ================================================================
+
+model SchoolConfig {
+    id            String   @id @default(cuid())
+    schoolName    String
+    address       String?
+    phone         String?
+    email         String?
+    logoUrl       String?
+    minGradeLevel Int      @default(6) // OD-01: school teaches grade 6–13
+    maxGradeLevel Int      @default(13)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+// ================================================================
+// ACADEMIC CALENDAR
+// OD-01: 3 semesters (terms) per year, 3 term-test exams per semester.
+// ================================================================
+
+model AcademicYear {
+    id        String   @id @default(cuid())
+    name      String   @unique // e.g. "2026"
+    startDate DateTime
+    endDate   DateTime
+    isCurrent Boolean  @default(false)
+
+    terms                     Term[]
+    classes                   Class[]
+    teacherSubjectAssignments TeacherSubjectAssignment[]
+    teachingAssignments       TeachingAssignment[]
+    studentClassEnrollments   StudentClassEnrollment[]
+    studentSubjectSelections  StudentSubjectSelection[]
+    reports                   Report[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([isCurrent])
+}
+
+model Term {
+    id             String   @id @default(cuid())
+    academicYearId String
+    name           String // e.g. "Semester 1"
+    sequence       Int // 1–3 (OD-01)
+    startDate      DateTime
+    endDate        DateTime
+
+    academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+    exams        Exam[]
+    reports      Report[]
+
+    @@unique([academicYearId, sequence])
+    @@index([academicYearId])
+}
+
+model Exam {
+    id       String     @id @default(cuid())
+    termId   String
+    name     String // e.g. "Term Test 1" (OD-02: assessment type = term test)
+    sequence Int // 1–3 per term (OD-01)
+    examDate DateTime?
+    status   ExamStatus @default(DRAFT)
+
+    term       Term        @relation(fields: [termId], references: [id], onDelete: Cascade)
+    markSheets MarkSheet[]
+    reports    Report[]
+
+    @@unique([termId, sequence])
+    @@index([termId])
+}
+
+// ================================================================
+// SCHOOL STRUCTURE — grade levels / classes / subjects
+// ================================================================
+
+model GradeLevel {
+    id    String @id @default(cuid())
+    level Int    @unique // 6–13 (OD-01)
+    name  String // e.g. "Grade 10"
+
+    classes  Class[]
+    subjects Subject[] @relation("GradeLevelSubjects")
+}
+
+// A Class is scoped to one academic year, which is what lets us keep
+// clean historical class membership (OD-06) and a class-teacher
+// assignment that only ever applies for that one year (OD-08: cannot
+// be replaced mid-year, but a new Class row next year can have a
+// different class teacher).
+model Class {
+    id             String  @id @default(cuid())
+    name           String // e.g. "12A"
+    gradeLevelId   String
+    academicYearId String
+    classTeacherId String? // BR-12/FR-012: at most one active class teacher
+    isActive       Boolean @default(true)
+
+    gradeLevel   GradeLevel      @relation(fields: [gradeLevelId], references: [id])
+    academicYear AcademicYear    @relation(fields: [academicYearId], references: [id])
+    classTeacher TeacherProfile? @relation("ClassTeacherOf", fields: [classTeacherId], references: [id])
+
+    enrollments         StudentClassEnrollment[]
+    currentStudents      StudentProfile[]         @relation("CurrentClass")
+    teachingAssignments  TeachingAssignment[]
+    markSheets           MarkSheet[]
+    reports              Report[]
+
+    // BR-11/FR-011: a teacher can be the responsible class teacher of at
+    // most one class per year. Postgres treats each NULL as distinct in
+    // a unique index, so any number of classes with classTeacherId = NULL
+    // remain allowed.
+    @@unique([academicYearId, classTeacherId])
+    @@unique([academicYearId, gradeLevelId, name])
+    @@index([academicYearId])
+}
+
+model Subject {
+    id       String  @id @default(cuid())
+    name     String  @unique
+    code     String? @unique
+    isActive Boolean @default(true) // BR-05: deactivate, never physically delete once referenced
+
+    gradeLevels GradeLevel[] @relation("GradeLevelSubjects")
+
+    teacherSubjectAssignments TeacherSubjectAssignment[]
+    teachingAssignments       TeachingAssignment[]
+    studentSubjectSelections  StudentSubjectSelection[]
+    markSheets                MarkSheet[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+// ================================================================
+// TEACHERS
+// ================================================================
+
+model TeacherProfile {
+    id            String    @id @default(cuid())
+    userId        String    @unique
+    employeeNo    String    @unique
+    joinedAt      DateTime  @default(now())
+    qualification String?
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    subjectAssignments     TeacherSubjectAssignment[]
+    teachingAssignments    TeachingAssignment[]
+    classesAsClassTeacher  Class[]                    @relation("ClassTeacherOf")
+    markSheetsOwned        MarkSheet[]
+}
+
+// BR-09/FR-009: a teacher has exactly ONE active subject at a time.
+// Historized per academic year so OD-07 (subject may change next year,
+// preserving previous records) is satisfied without losing history.
+// The unique constraint below is what actually enforces "one active
+// subject per teacher" for a given year (also see E-01).
+model TeacherSubjectAssignment {
+    id             String    @id @default(cuid())
+    teacherId      String
+    subjectId      String
+    academicYearId String
+    isActive       Boolean   @default(true)
+    assignedAt     DateTime  @default(now())
+    endedAt        DateTime?
+
+    teacher      TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+    subject      Subject        @relation(fields: [subjectId], references: [id])
+    academicYear AcademicYear   @relation(fields: [academicYearId], references: [id])
+
+    @@unique([teacherId, academicYearId])
+    @@index([subjectId])
+}
+
+// BR-14/BR-16-18: the authorization record a mark entry is checked
+// against — teacher + subject + class + year. The service layer MUST
+// verify subjectId here matches the teacher's active
+// TeacherSubjectAssignment.subjectId for the same academicYearId
+// (BR-17) — that specific cross-row equality can't be expressed as a
+// plain DB constraint.
+model TeachingAssignment {
+    id             String    @id @default(cuid())
+    teacherId      String
+    subjectId      String
+    classId        String
+    academicYearId String
+    isActive       Boolean   @default(true)
+    assignedAt     DateTime  @default(now())
+    endedAt        DateTime?
+
+    teacher      TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+    subject      Subject        @relation(fields: [subjectId], references: [id])
+    class        Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+    academicYear AcademicYear   @relation(fields: [academicYearId], references: [id])
+
+    @@unique([teacherId, subjectId, classId, academicYearId])
+    @@index([classId])
+    @@index([teacherId])
+}
+
+// ================================================================
+// STUDENTS
+// ================================================================
+
+model StudentProfile {
+    id              String   @id @default(cuid())
+    userId          String   @unique
+    admissionNumber String   @unique // OD-09: username is based on this
+    admissionDate   DateTime @default(now())
+    guardianName    String?
+    guardianPhone   String?
+
+    // Denormalized pointer to the student's current class, kept in sync
+    // with the StudentClassEnrollment row where isCurrent = true. Exists
+    // purely for cheap "who's in this class right now" reads.
+    currentClassId String?
+
+    user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    currentClass Class? @relation("CurrentClass", fields: [currentClassId], references: [id])
+
+    enrollments       StudentClassEnrollment[]
+    subjectSelections StudentSubjectSelection[]
+    marks             Mark[]
+    reports           Report[]
+
+    @@index([currentClassId])
+}
+
+// OD-06: retain year/term-specific class history when a student moves
+// from one class to another (e.g. 12A -> 12B).
+model StudentClassEnrollment {
+    id             String    @id @default(cuid())
+    studentId      String
+    classId        String
+    academicYearId String
+    enrolledAt     DateTime  @default(now())
+    leftAt         DateTime?
+    isCurrent      Boolean   @default(true)
+
+    student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    class        Class          @relation(fields: [classId], references: [id])
+    academicYear AcademicYear   @relation(fields: [academicYearId], references: [id])
+
+    // A mid-year transfer produces a second row for the same
+    // (studentId, academicYearId) pair. The service layer is
+    // responsible for setting isCurrent = false on the previous row
+    // (and updating StudentProfile.currentClassId) when that happens.
+    @@index([studentId, academicYearId])
+    @@index([classId])
+}
+
+// 10.4 step 5: "administrator adds the subjects that student chooses".
+model StudentSubjectSelection {
+    id             String   @id @default(cuid())
+    studentId      String
+    subjectId      String
+    academicYearId String
+    isActive       Boolean  @default(true)
+    selectedAt     DateTime @default(now())
+
+    student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    subject      Subject        @relation(fields: [subjectId], references: [id])
+    academicYear AcademicYear   @relation(fields: [academicYearId], references: [id])
+
+    @@unique([studentId, subjectId, academicYearId])
+}
+
+// ================================================================
+// MARKS (section 13) + submit/lock/approval workflow (OD-05)
+// ================================================================
+
+// One MarkSheet = one teacher's mark-entry batch for one
+// subject + class + exam. This is the unit that moves through the
+// draft -> submitted -> approved/rejected -> locked workflow (OD-05),
+// rather than tracking workflow state per individual mark.
+model MarkSheet {
+    id        String          @id @default(cuid())
+    subjectId String
+    classId   String
+    examId    String
+    teacherId String // owner/entrant — must hold the matching TeachingAssignment (BR-16)
+    status    MarkSheetStatus @default(DRAFT)
+
+    submittedAt     DateTime?
+    approvedById    String?
+    approvedAt      DateTime?
+    rejectionReason String?
+
+    subject    Subject        @relation(fields: [subjectId], references: [id])
+    class      Class          @relation(fields: [classId], references: [id])
+    exam       Exam           @relation(fields: [examId], references: [id])
+    teacher    TeacherProfile @relation(fields: [teacherId], references: [id])
+    approvedBy User?          @relation("MarkSheetApprover", fields: [approvedById], references: [id])
+
+    marks Mark[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([subjectId, classId, examId])
+    @@index([teacherId])
+    @@index([status])
+}
+
+model Mark {
+    id            String   @id @default(cuid())
+    markSheetId   String
+    studentId     String
+    marksObtained Decimal? @db.Decimal(5, 2) // OD-03: 0–100, configurable max
+    maxMarks      Int      @default(100)
+    isAbsent      Boolean  @default(false)
+    grade         String? // resolved letter grade, snapshotted at save time — see GradeBand note below
+    remarks       String?
+
+    markSheet MarkSheet      @relation(fields: [markSheetId], references: [id], onDelete: Cascade)
+    student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([markSheetId, studentId])
+    @@index([studentId])
+}
+
+// OD-04: grades / pass-fail boundaries — admin-configurable lookup
+// table. Mark.grade stores a point-in-time snapshot resolved against
+// this table, so editing boundaries later doesn't retroactively change
+// marks/report cards that already went out.
+model GradeBand {
+    id          String  @id @default(cuid())
+    grade       String // e.g. "A", "B", "C", "F"
+    minMark     Int
+    maxMark     Int
+    gradePoint  Float?
+    isPassing   Boolean @default(true)
+    description String?
+
+    @@index([minMark, maxMark])
+}
+
+// ================================================================
+// REPORTS (section 16, OD-13: PDF + Excel export)
+// ================================================================
+
+model Report {
+    id             String       @id @default(cuid())
+    type           ReportType
+    format         ReportFormat
+    studentId      String?
+    classId        String?
+    examId         String?
+    termId         String?
+    academicYearId String?
+    filePath       String?
+    generatedById  String
+
+    student      StudentProfile? @relation(fields: [studentId], references: [id])
+    class        Class?          @relation(fields: [classId], references: [id])
+    exam         Exam?           @relation(fields: [examId], references: [id])
+    term         Term?           @relation(fields: [termId], references: [id])
+    academicYear AcademicYear?   @relation(fields: [academicYearId], references: [id])
+    generatedBy  User            @relation("ReportGeneratedBy", fields: [generatedById], references: [id])
+
+    generatedAt DateTime @default(now())
+
+    @@index([studentId])
+    @@index([classId])
+}
+
+// ================================================================
+// AUDIT LOG
+// Not explicitly required by the spec, but supports §25's "keep
+// authorization on the server" principle and AT-15 (rejected
+// unauthorized/crafted requests should be traceable).
+// ================================================================
+
+model AuditLog {
+    id            String   @id @default(cuid())
+    action        String // e.g. "TEACHER_CREATED", "MARK_APPROVED", "STUDENT_DEACTIVATED"
+    entityType    String // e.g. "Teacher", "Mark", "Class"
+    entityId      String
+    performedById String?
+    metadata      Json?
+    createdAt     DateTime @default(now())
+
+    performedBy User? @relation("AuditActor", fields: [performedById], references: [id])
+
+    @@index([entityType, entityId])
+    @@index([performedById])
 }
