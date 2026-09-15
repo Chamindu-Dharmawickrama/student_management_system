@@ -96,11 +96,13 @@ export const sendTestEmail = async () => {
     try {
         const provider = getEmailProvider();
 
-        const registerTemp = templateRegistry[EMAIL_TYPES.REGISTRATION_CONFIRMATION];
-        const renderData = registerTemp.render({
-            username: "Chamindu",
-            email: "chamindudharmawickrema@gmail.com",
-
+        const template = templateRegistry[EMAIL_TYPES.INITIAL_CREDENTIALS];
+        const renderData = template.render({
+            recipientName: "Chamindu",
+            username: "chamindu",
+            temporaryPassword: "Temp#1234",
+            role: "TEACHER",
+            loginUrl: "https://example.com/login",
         })
 
         await provider.send({

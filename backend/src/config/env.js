@@ -94,4 +94,13 @@ export const config = Object.freeze({
 
 
     logLevel: process.env.LOG_LEVEL ?? (nodeEnv === "production" ? "info" : "debug"),
+
+    // Used only by prisma/seed.js to bootstrap the first SCHOOL_ADMIN account
+    // (there is no public self-registration — §23/§35). No defaults for
+    // credentials: the seed script requires these explicitly.
+    seedAdminEmail: process.env.SEED_ADMIN_EMAIL ?? "",
+    seedAdminUsername: process.env.SEED_ADMIN_USERNAME ?? "",
+    seedAdminPassword: process.env.SEED_ADMIN_PASSWORD ?? "",
+    seedAdminFirstName: process.env.SEED_ADMIN_FIRST_NAME ?? "Admin",
+    seedAdminLastName: process.env.SEED_ADMIN_LAST_NAME ?? "User",
 });

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticateUser } from "../../middlewares/authenticate.js";
+import { authenticateUser, requirePasswordAlreadyChanged } from "../../middlewares/authenticate.js";
 import { validate } from "../../middlewares/validate.js";
 import { catchAsync } from "../../utils/catchAsync.js";
 import { updateProfileSchema } from "./profile.validator.js";
@@ -11,25 +11,28 @@ import {
 
 const profileRouter = Router();
 
-// GET /profile 
+// GET /profile — allowed even before the mandatory password change so the
+// frontend can render "who am I" while the change-password dialog is open.
 profileRouter.get(
     "/",
     authenticateUser,
     catchAsync(getProfileController),
 );
 
-// PATCH /profile 
+// PATCH /profile
 profileRouter.patch(
     "/",
     authenticateUser,
+    requirePasswordAlreadyChanged,
     validate(updateProfileSchema),
     catchAsync(updateProfileController),
 );
 
-// DELETE /profile 
+// DELETE /profile
 profileRouter.delete(
     "/",
     authenticateUser,
+    requirePasswordAlreadyChanged,
     catchAsync(deleteProfileController),
 );
 

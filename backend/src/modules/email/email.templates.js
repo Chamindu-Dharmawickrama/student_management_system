@@ -21,7 +21,7 @@ const baseHtml = (title, bodyHtml) => `<!DOCTYPE html>
             <td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);
                         padding:32px 40px;text-align:center;">
               <span style="color:#ffffff;font-size:22px;font-weight:700;
-                           letter-spacing:0.5px;">NoteVault</span>
+                           letter-spacing:0.5px;">School Management System</span>
             </td>
           </tr>
           <!-- Body -->
@@ -48,58 +48,93 @@ const baseHtml = (title, bodyHtml) => `<!DOCTYPE html>
 </html>`;
 
 
-// Registration Confirmation 
-const registrationConfirmationTemplate = {
-  type: EMAIL_TYPES.REGISTRATION_CONFIRMATION,
+// Initial credentials — sent when an admin registers a student or teacher.
+// The account starts with mustChangePassword=true (auth flow §13), so this
+// email must make the temporary nature of the password unmistakable.
+const initialCredentialsTemplate = {
+  type: EMAIL_TYPES.INITIAL_CREDENTIALS,
 
   payloadSchema: z.object({
+    recipientName: z.string().min(1),
     username: z.string().min(1),
-    email: z.string().email(),
+    temporaryPassword: z.string().min(1),
+    role: z.enum(['STUDENT', 'TEACHER']),
+    loginUrl: z.string().url(),
   }),
 
-  render({ username, email }) {
-    const subject = 'Welcome to NoteVault — your account is ready';
+  render({ recipientName, username, temporaryPassword, role, loginUrl }) {
+    const roleLabel = role === 'STUDENT' ? 'Student' : 'Teacher';
+    const subject = 'Your account is ready — temporary login credentials';
 
     const bodyHtml = `
           <h1 style="margin:0 0 8px;color:#1a1a2e;font-size:24px;font-weight:700;">
-            Welcome, ${username}!
+            Welcome, ${recipientName}!
           </h1>
           <p style="margin:0 0 24px;color:#4a5568;font-size:15px;line-height:1.7;">
-            Your account has been successfully created. You're all set to start
-            using the platform.
+            A ${roleLabel.toLowerCase()} account has been created for you. Use the
+            temporary credentials below to log in for the first time.
           </p>
 
           <table cellpadding="0" cellspacing="0" width="100%"
                  style="background:#f8fafc;border-radius:6px;
-                        border:1px solid #e2e8f0;margin-bottom:28px;">
+                        border:1px solid #e2e8f0;margin-bottom:20px;">
             <tr>
               <td style="padding:20px 24px;">
                 <p style="margin:0 0 6px;color:#718096;font-size:12px;
                            text-transform:uppercase;letter-spacing:0.8px;font-weight:600;">
-                  Account Details
+                  Login Credentials
                 </p>
                 <p style="margin:0;color:#2d3748;font-size:15px;">
                   <strong>Username:</strong> ${username}<br/>
-                  <strong>Email:</strong> ${email}
+                  <strong>Temporary Password:</strong> ${temporaryPassword}
                 </p>
               </td>
             </tr>
           </table>
 
+          <!-- CTA Button -->
+          <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+            <tr>
+              <td style="border-radius:6px;
+                          background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);">
+                <a href="${loginUrl}"
+                   style="display:inline-block;padding:14px 32px;
+                          color:#ffffff;font-size:15px;font-weight:600;
+                          text-decoration:none;border-radius:6px;
+                          letter-spacing:0.3px;">
+                  Log In
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 8px;color:#c05621;font-size:13px;line-height:1.7;
+                     background:#fffaf0;border:1px solid #feebc8;border-radius:6px;
+                     padding:12px 16px;">
+            <strong>This password is temporary.</strong> You will be required to
+            set a new password the first time you log in — the temporary
+            password will stop working immediately afterwards.
+          </p>
+
           <p style="margin:0;color:#718096;font-size:13px;line-height:1.7;">
-            If you did not create this account, please contact support immediately.
+            If you were not expecting this account, please contact your
+            school administrator.
           </p>
         `;
 
     const text = [
-      `Welcome to NoteVault, ${username}!`,
+      `Welcome, ${recipientName}!`,
       '',
-      'Your account has been successfully created.',
+      `A ${roleLabel.toLowerCase()} account has been created for you.`,
       '',
-      `Username : ${username}`,
-      `Email    : ${email}`,
+      `Username           : ${username}`,
+      `Temporary Password : ${temporaryPassword}`,
+      `Log in here        : ${loginUrl}`,
       '',
-      'If you did not create this account, please contact support immediately.',
+      'This password is temporary — you must set a new password the first ' +
+        'time you log in, after which the temporary password stops working.',
+      '',
+      'If you were not expecting this account, please contact your school administrator.',
     ].join('\n');
 
     return { subject, html: baseHtml(subject, bodyHtml), text };
@@ -175,8 +210,8 @@ const passwordResetTemplate = {
   },
 };
 
-// Registry templates 
+// Registry templates
 export const templateRegistry = Object.freeze({
-  [EMAIL_TYPES.REGISTRATION_CONFIRMATION]: registrationConfirmationTemplate,
   [EMAIL_TYPES.PASSWORD_RESET]: passwordResetTemplate,
+  [EMAIL_TYPES.INITIAL_CREDENTIALS]: initialCredentialsTemplate,
 });

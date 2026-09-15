@@ -35,7 +35,7 @@ app.use(
 );
 
 // Parses Cookie header and populates req.cookies — required for httpOnly refresh token reads.
-app.use(cookieParser())
+app.use(cookieParser());
 
 // Compresses response bodies using gzip/deflate. Reduces bandwidth usage by
 // 60-80% for JSON/text responses. Browsers handle decompression transparently.

@@ -5,11 +5,12 @@ const PROFILE_SELECT = {
     username: true,
     email: true,
     role: true,
-    avatarUrl: true,
+    photoUrl: true,
     authProvider: true,
     isActive: true,
     createdAt: true,
     updatedAt: true,
+    teacherProfile: {}
 };
 
 // Fetch a user's profile fields by their ID

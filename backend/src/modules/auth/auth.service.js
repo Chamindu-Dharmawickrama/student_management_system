@@ -1,6 +1,6 @@
 import { AppError } from "../../utils/appError.js";
-import { findUser, findUserForLogin, createUser, storeRefreshToken, findRefreshToken, revokeRefreshTokenFamily, revokeRefreshToken, revokeAllUserRefreshTokens, lockUserUntil, incrementFailedAttempts, resetLoginTracking, invalidateUserPasswordResets, createPasswordReset, findPasswordReset, markPasswordResetUsed, updateUserPassword, findUserByEmail, createUserTx, invalidateUserPasswordResetsTx, createPasswordResetTx } from "./auth.repository.js";
-import { toLoginResponseDTO, toRefreshResponseDTO, toRegistrationResponseDTO } from "./auth.dto.js";
+import { findUserForLogin, findUserWithPasswordById, storeRefreshToken, findRefreshToken, revokeRefreshTokenFamily, revokeRefreshToken, revokeAllUserRefreshTokens, lockUserUntil, incrementFailedAttempts, resetLoginTracking, findPasswordReset, markPasswordResetUsed, updateUserPassword, findUserByEmail, invalidateUserPasswordResetsTx, createPasswordResetTx } from "./auth.repository.js";
+import { toLoginResponseDTO, toRefreshResponseDTO } from "./auth.dto.js";
 import bcrypt from "bcrypt";
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,11 +8,28 @@ import { decodeToken, hashRefreshToken, signAccessToken, signRefreshToken, verif
 import { config } from "../../config/env.js";
 import { addToBlocklist, setUserInvalidateBefore } from "../../utils/tokenBlocklist.js";
 import { getPrisma } from "../../config/database.js";
-import { sendPasswordReset, sendRegistrationConfirmation } from "../email/email.service.js";
+import { sendPasswordReset } from "../email/email.service.js";
 
 const DUMMY_HASH = '$2b$12$IgJ8jdQ5K5KmOFb1JXfkXOo2qKFQxB1e5c.L9Kn8dGdRsWQyVhDOq';
 const MAX_FAILED_ATTEMPTS = config.maxLoginAttempts;
 const LOCKOUT_DURATION_MS = config.lockoutDurationMs;
+
+// Issues a fresh access/refresh token pair for a user and persists the
+// refresh token — the common tail end of login and of a successful
+// password change (which must not force a second login round-trip).
+async function _issueSession(user) {
+    // A new family UUID groups all refresh token rotations from this login.
+    // If a rotated-out token is reused, we revoke the entire family.
+    const family = uuidv4();
+    const accessToken = signAccessToken(user);
+    const refreshToken = signRefreshToken(user, family);
+
+    const hashedRefreshToken = hashRefreshToken(refreshToken);
+    const expiresAt = new Date(Date.now() + config.refreshTokenExpiryInMs);
+    await storeRefreshToken(user.id, hashedRefreshToken, family, expiresAt);
+
+    return toLoginResponseDTO(user, accessToken, refreshToken);
+}
 
 export const loginService = async ({ username, password }) => {
 
@@ -58,46 +75,7 @@ export const loginService = async ({ username, password }) => {
         await resetLoginTracking(user.id);
     }
 
-    // issue tokens 
-    // A new family UUID groups all refresh token rotations from this login.
-    // If a rotated-out token is reused, we revoke the entire family.
-    const family = uuidv4();
-    const accessToken = signAccessToken(user);
-    const refreshToken = signRefreshToken(user, family);
-
-    // Store the hashed refresh token in the DB for revocation capability.
-    const hashedRefreshToken = hashRefreshToken(refreshToken);
-    const expiresAt = new Date(Date.now() + config.refreshTokenExpiryInMs);
-    await storeRefreshToken(user.id, hashedRefreshToken, family, expiresAt);
-
-    return toLoginResponseDTO(user, accessToken, refreshToken);
-};
-
-
-export const registerService = async ({ username, email, password }) => {
-
-    const existingUser = await findUser({ username, email });
-
-    if (existingUser) {
-        throw new AppError("Username or email already in use.", 409);
-    }
-
-    const SALT_ROUNDS = 12;
-    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
-    // Write the user row AND the email outbox job in a single transaction
-    /* If any function inside the transaction fails and throws an error, Prisma rolls back the entire $transaction, 
-       so none of the operations are saved to the database.    */
-    const db = getPrisma();
-    const user = await db.$transaction(async (tx) => {
-        // create a new user
-        const newUser = await createUserTx(tx, { username, email, password: hashedPassword });
-        // create the email job in the database
-        await sendRegistrationConfirmation(newUser, tx)
-        return newUser
-    })
-
-    return toRegistrationResponseDTO(user);
+    return _issueSession(user);
 };
 
 
@@ -200,6 +178,7 @@ export const forgotPasswordService = async ({ email }) => {
 
     // create a reset url with the raw token
     const resetUrl = `${config.allowedOrigins[0]}/reset-password?token=${rawToken}`;
+    console.log('resetUrl:', resetUrl);
 
     const db = getPrisma();
     await db.$transaction(async (tx) => {
@@ -242,6 +221,52 @@ export const resetPasswordService = async ({ token, newPassword }) => {
 }
 
 
+// Changes a user's own password while authenticated. Serves both the
+// mandatory first-login change (user.mustChangePassword === true, current
+// password is the one-time password from the credential email) and a later
+// voluntary change — the business rule is identical in both cases, so this
+// is deliberately the single implementation for §13/§14 "change password"
+// and "first-login password change".
+export const changePasswordService = async ({ userId, currentPassword, newPassword }) => {
+    const user = await findUserWithPasswordById(userId);
+
+    if (!user) {
+        throw new AppError('User not found.', 404);
+    }
+
+    if (!user.isActive) {
+        throw new AppError('Your account has been suspended. Please contact support.', 403);
+    }
+
+    const passwordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!passwordValid) {
+        throw new AppError('Current password is incorrect.', 401);
+    }
+
+    // Reject only if the new password is byte-for-byte identical to the old
+    // one — bcrypt.compare against the same hash the user just proved they know.
+    const isSameAsOld = await bcrypt.compare(newPassword, user.password);
+    if (isSameAsOld) {
+        throw new AppError('New password must be different from the current password.', 400);
+    }
+
+    const SALT_ROUNDS = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    // Clears mustChangePassword as part of the same update (auth.repository.js).
+    await updateUserPassword(user.id, hashedPassword);
+
+    // The old (possibly one-time) password and every session it created must
+    // stop working the instant a new password is set — §19: "the old
+    // one-time password must no longer be usable as the user's normal
+    // credential."
+    await revokeAllUserRefreshTokens(user.id);
+    await setUserInvalidateBefore(user.id);
+
+    // Issue a fresh session immediately so the caller can move straight from
+    // the mandatory-change screen into the app without logging in again.
+    const freshUser = await findUserForLogin(user.username);
+    return _issueSession(freshUser);
+};
 
 
 
@@ -258,36 +283,3 @@ async function _blocklistAccessToken(accessToken) {
     }
 }
 
-// Use name if available (else email's local-part) as the source, then sanitize it into a lowercase username.
-function _deriveUsernameBase(name, email) {
-    const source = name || email.split('@')[0];
-    return (
-        source
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, '_')
-            .replace(/_{2,}/g, '_')
-            .replace(/^_+|_+$/g, '')
-            .slice(0, 25)
-        || 'user'
-    );
-}
-
-
-// Checks if `baseUsername` is available; if not, appends a random 4-digit suffix and
-// retries up to 10 times. Falls back to a millisecond-timestamp suffix.
-async function _findAvailableUsername(baseUsername) {
-    const db = getPrisma();
-
-    const taken = await db.user.findUnique({ where: { username: baseUsername }, select: { id: true } });
-    if (!taken) return baseUsername;
-
-    for (let i = 0; i < 10; i++) {
-        const suffix = Math.floor(1000 + Math.random() * 9000);
-        const candidate = `${base}_${suffix}`;
-        const exists = await db.user.findUnique({ where: { username: candidate }, select: { id: true } });
-        if (!exists) return candidate;
-    }
-
-    // Extremely unlikely to reach here, but ensures we never throw.
-    return `${base}_${Date.now().toString().slice(-6)}`;
-} 

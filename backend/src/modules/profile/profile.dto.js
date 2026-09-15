@@ -3,7 +3,7 @@ export const toProfileDTO = (user) => ({
     username: user.username,
     email: user.email,
     role: user.role,
-    avatarUrl: user.avatarUrl ?? null,
+    photoUrl: user.photoUrl ?? null,
     authProvider: user.authProvider ?? "local",
     isActive: user.isActive,
     createdAt: user.createdAt,

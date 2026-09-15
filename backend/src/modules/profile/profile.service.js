@@ -24,7 +24,7 @@ export const updateProfileService = async ({ userId, data }) => {
     const updateData = {};
     if (data.username !== undefined) updateData.username = data.username;
     if (data.email !== undefined) updateData.email = data.email;
-    if (data.avatarUrl !== undefined) updateData.avatarUrl = data.avatarUrl;
+    if (data.photoUrl !== undefined) updateData.photoUrl = data.photoUrl;
 
     let updatedUser;
 

@@ -2,10 +2,19 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { config } from '../config/env.js';
 
-// signs a new access token containing the user info 
+// signs a new access token containing the user info
 export const signAccessToken = (user) => {
     return jwt.sign(
-        { sub: user.id, username: user.username, role: user.role },
+        {
+            sub: user.id,
+            username: user.username,
+            role: user.role,
+            // Embedded so authenticateUser can enforce the first-login
+            // password-change restriction without a DB round trip per
+            // request. Re-signed on every login/refresh/password-change, so
+            // it always reflects the current state (see auth.service.js).
+            mustChangePassword: user.mustChangePassword ?? false,
+        },
         config.accessTokenSecret,
         { expiresIn: config.accessTokenExpiry }
     )

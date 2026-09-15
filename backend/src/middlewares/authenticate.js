@@ -1,7 +1,7 @@
-import { AppError } from "../utils/appError";
-import { catchAsync } from "../utils/catchAsync";
-import { getUserInvalidateBefore, isBlocklisted } from "../utils/tokenBlocklist";
-import { verifyAccessToken } from "../utils/tokens";
+import { AppError } from "../utils/appError.js";
+import { catchAsync } from "../utils/catchAsync.js";
+import { getUserInvalidateBefore, isBlocklisted } from "../utils/tokenBlocklist.js";
+import { verifyAccessToken } from "../utils/tokens.js";
 
 // check if user is authenticated
 export const authenticateUser = catchAsync(async (req, res, next) => {
@@ -38,6 +38,7 @@ export const authenticateUser = catchAsync(async (req, res, next) => {
         id: payload.sub,
         username: payload.username,
         role: payload.role ?? 'USER',
+        mustChangePassword: payload.mustChangePassword ?? false,
     };
     req.accessToken = token;
 
@@ -45,13 +46,27 @@ export const authenticateUser = catchAsync(async (req, res, next) => {
 })
 
 
-// check if user has the required role 
+// check if user has the required role
 export const requireRole = (...roles) => (req, _res, next) => {
     if (!req.user) {
         return next(new AppError('Not authenticated.', 401));
     }
     if (!roles.includes(req.user.role)) {
         return next(new AppError('You do not have permission to access this resource.', 403));
+    }
+    next();
+};
+
+// Blocks access to protected routes until a mandatory first-login password
+// change is completed (BR-25/FR-022, §13). Must run after authenticateUser.
+// Never apply this to /auth/* routes — change-password is exactly how a
+// user with mustChangePassword=true is meant to escape this state.
+export const requirePasswordAlreadyChanged = (req, _res, next) => {
+    if (!req.user) {
+        return next(new AppError('Not authenticated.', 401));
+    }
+    if (req.user.mustChangePassword) {
+        return next(new AppError('You must change your temporary password before continuing.', 403));
     }
     next();
 };

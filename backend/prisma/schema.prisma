@@ -13,13 +13,6 @@ enum Role {
     STUDENT
 }
 
-enum ExamStatus {
-    DRAFT
-    OPEN
-    CLOSED
-    PUBLISHED
-}
-
 enum MarkSheetStatus {
     DRAFT
     SUBMITTED
@@ -45,6 +38,12 @@ enum EmailJobStatus {
     PROCESSING
     SENT
     FAILED
+}
+
+enum Gender {
+    MALE
+    FEMALE
+    OTHER
 }
 
 // ================================================================
@@ -77,6 +76,7 @@ model User {
     phone       String?
     address     String?
     dateOfBirth DateTime?
+    gender      Gender?
     photoUrl    String?
 
     createdAt DateTime @default(now())
@@ -163,7 +163,7 @@ model SchoolConfig {
 
 // ================================================================
 // ACADEMIC CALENDAR
-// OD-01: 3 semesters (terms) per year, 3 term-test exams per semester.
+// OD-01: 3 terms per year, each term has exactly one term-test exam.
 // ================================================================
 
 model AcademicYear {
@@ -196,27 +196,33 @@ model Term {
     endDate        DateTime
 
     academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-    exams        Exam[]
+    exam         Exam? // 1:1 since Exam.@@unique([termId]) — one exam per term
     reports      Report[]
 
     @@unique([academicYearId, sequence])
     @@index([academicYearId])
 }
 
+// The system deliberately does NOT track a per-subject exam timetable —
+// only the exam PERIOD for the whole term. Both dates start null (set by
+// the admin once the school finalizes the period; unknown when the Exam is
+// auto-provisioned alongside its Term). Mark entry unlocks once
+// endDate has passed (see marks.service.js) — there is no separate
+// "published"/status flag; a Mark becomes visible to its student the
+// moment it actually has a value (see marks.repository.js#findMarksForStudent).
 model Exam {
-    id       String     @id @default(cuid())
-    termId   String
-    name     String // e.g. "Term Test 1" (OD-02: assessment type = term test)
-    sequence Int // 1–3 per term (OD-01)
-    examDate DateTime?
-    status   ExamStatus @default(DRAFT)
+    id        String    @id @default(cuid())
+    termId    String
+    name      String // e.g. "Term Test 1" (OD-02: assessment type = term test)
+    sequence  Int // mirrors the parent Term's sequence (1-3) — exactly one Exam per Term
+    startDate DateTime?
+    endDate   DateTime?
 
     term       Term        @relation(fields: [termId], references: [id], onDelete: Cascade)
     markSheets MarkSheet[]
     reports    Report[]
 
-    @@unique([termId, sequence])
-    @@index([termId])
+    @@unique([termId])
 }
 
 // ================================================================

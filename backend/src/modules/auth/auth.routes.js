@@ -3,9 +3,9 @@ import redis from "../../config/redis.js";
 import { createRateLimiter } from "../../middlewares/rateLimiter.js";
 import logger from "../../config/logger.js";
 import { validate } from "../../middlewares/validate.js";
-import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema } from "./auth.validator.js";
+import { changePasswordSchema, forgotPasswordSchema, loginSchema, resetPasswordSchema } from "./auth.validator.js";
 import { catchAsync } from "../../utils/catchAsync.js";
-import { forgotPasswordController, loginController, logoutAllController, logoutController, refreshController, registerController, resetPasswordController } from "./auth.controller.js";
+import { changePasswordController, forgotPasswordController, loginController, logoutAllController, logoutController, refreshController, resetPasswordController } from "./auth.controller.js";
 import { authenticateUser } from "../../middlewares/authenticate.js";
 
 const authRouter = Router();
@@ -46,17 +46,17 @@ const refreshLimiter = createRateLimiter({
     },
 });
 
-const registerLimiter = createRateLimiter({
+const changePasswordLimiter = createRateLimiter({
     redis,
     limit: 5,
     windowMs: 60_000,
-    prefix: "register",
-    errorMessage: "Too many register attempts. Try again later.",
+    prefix: "change-pw",
+    errorMessage: "Too many password change attempts. Try again later.",
     keyGenerator: (req) => req.user?.id ?? req.ip,
     fallbackBehavior: "block",
     onRedisError: (error) => {
         logger.warn(
-            "Login rate limiter Redis error - blocking request for safety",
+            "Change-password rate limiter Redis error - blocking request for safety",
             {
                 message: error.message,
             },
@@ -124,9 +124,6 @@ const resetPasswordLimiter = createRateLimiter({
 // POST /auth/login
 authRouter.post("/login", loginLimiter, validate(loginSchema), catchAsync(loginController));
 
-// POST /auth/register
-authRouter.post("/register", registerLimiter, validate(registerSchema), catchAsync(registerController));
-
 // POST /auth/refresh
 authRouter.post("/refresh", refreshLimiter, catchAsync(refreshController));
 
@@ -147,11 +144,21 @@ authRouter.post('/forgot-password',
     catchAsync(forgotPasswordController),
 );
 
-// POST /auth/reset-password  
+// POST /auth/reset-password
 authRouter.post('/reset-password',
     resetPasswordLimiter,
     validate(resetPasswordSchema),
     catchAsync(resetPasswordController),
+);
+
+// POST /auth/change-password — requires a valid access token only; deliberately
+// NOT gated by requirePasswordAlreadyChanged, since this is how a
+// mustChangePassword=true account (first login) escapes that state.
+authRouter.post('/change-password',
+    authenticateUser,
+    changePasswordLimiter,
+    validate(changePasswordSchema),
+    catchAsync(changePasswordController),
 );
 
 

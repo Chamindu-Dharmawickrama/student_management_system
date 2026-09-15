@@ -1,44 +1,5 @@
 import { getPrisma } from "../../config/database.js";
 
-// find user by username or email
-export const findUser = async ({ username, email }) => {
-    const db = getPrisma();
-    return db.user.findFirst({
-        where: {
-            OR: [
-                { username: username },
-                { email: email },
-            ],
-        },
-        select: {
-            id: true,
-        }
-    })
-}
-
-// create user
-export const createUser = async ({ username, email, password }) => {
-    const db = getPrisma();
-    return db.user.create({
-        data: {
-            username,
-            email,
-            password,
-        },
-    })
-}
-
-// create user inside a transaction
-export const createUserTx = (tx, { username, email, password }) => {
-    return tx.user.create({
-        data: {
-            username,
-            email,
-            password,
-        },
-    })
-}
-
 // find user by username for login
 export const findUserForLogin = async (username) => {
     const db = getPrisma();
@@ -50,7 +11,9 @@ export const findUserForLogin = async (username) => {
             email: true,
             role: true,
             isActive: true,
-            avatarUrl: true,
+            authProvider: true,
+            photoUrl: true,
+            mustChangePassword: true,
             failedAttempts: true,
             lockedUntil: true,
             password: true,
@@ -209,12 +172,24 @@ export const markPasswordResetUsed = async (id) => {
     });
 };
 
-// update the user password
+// update the user password — also clears the mustChangePassword flag, since
+// setting any password (via reset or change) means the user now has a
+// permanent password of their own choosing (BR-25/FR-022).
 export const updateUserPassword = async (userId, hashedPassword) => {
     const db = getPrisma();
     return db.user.update({
         where: { id: userId },
-        data: { password: hashedPassword },
+        data: { password: hashedPassword, mustChangePassword: false },
+    });
+};
+
+// find a user by id including the password hash — only for verifying the
+// current password during an authenticated password change
+export const findUserWithPasswordById = async (userId) => {
+    const db = getPrisma();
+    return db.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true, role: true, password: true, isActive: true },
     });
 };
 

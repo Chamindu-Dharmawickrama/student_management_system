@@ -3,19 +3,23 @@ import { EMAIL_TYPES } from './email.types.js';
 import { templateRegistry } from './email.templates.js';
 import { createEmailJob } from './email.repository.js';
 
-// send registration confirmation email
-export const sendRegistrationConfirmation = async (user, tx) => {
-    const template = templateRegistry[EMAIL_TYPES.REGISTRATION_CONFIRMATION];
+// send the initial username + one-time password to a newly registered
+// student/teacher (§18). Must be called inside the same transaction that
+// creates the account so registration and the credential email job either
+// both commit or both roll back (§20/§22).
+export const sendInitialCredentials = async (user, temporaryPassword, role, tx) => {
+    const template = templateRegistry[EMAIL_TYPES.INITIAL_CREDENTIALS];
 
-    // validate the payload 
     const payload = template.payloadSchema.parse({
+        recipientName: `${user.firstName} ${user.lastName}`.trim(),
         username: user.username,
-        email: user.email
+        temporaryPassword,
+        role,
+        loginUrl: `${config.allowedOrigins[0]}/login`,
     });
 
-    // the payload = {username:"user1",email:"[EMAIL_ADDRESS]"}
     await createEmailJob(tx, {
-        type: EMAIL_TYPES.REGISTRATION_CONFIRMATION,
+        type: EMAIL_TYPES.INITIAL_CREDENTIALS,
         recipient: user.email,
         payload,
     })

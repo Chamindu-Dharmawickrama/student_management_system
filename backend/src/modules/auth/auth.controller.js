@@ -1,5 +1,5 @@
 import { sendSuccess } from "../../utils/apiResponse.js";
-import { forgotPasswordService, loginService, logoutAllService, logoutService, refreshTokenService, registerService, resetPasswordService } from "./auth.service.js";
+import { changePasswordService, forgotPasswordService, loginService, logoutAllService, logoutService, refreshTokenService, resetPasswordService } from "./auth.service.js";
 import { config } from "../../config/env.js";
 import { AppError } from "../../utils/appError.js";
 
@@ -37,19 +37,6 @@ export const loginController = async (req, res) => {
         statusCode: 200,
         message: "Login successful.",
         data: safeResult,
-    });
-};
-
-
-export const registerController = async (req, res) => {
-    const { username, email, password } = req.body;
-
-    const result = await registerService({ username, email, password });
-
-    return sendSuccess(res, {
-        statusCode: 201,
-        message: "User registered successfully.",
-        data: result,
     });
 };
 
@@ -164,6 +151,28 @@ export const resetPasswordController = async (req, res) => {
         statusCode: 200,
         message: 'Password reset successfully. Please log in with your new password.',
         data: null,
+    });
+};
+
+
+// POST /auth/change-password — authenticated; used for both the mandatory
+// first-login change (user.mustChangePassword === true) and a later
+// voluntary change. Returns a fresh token pair so the client can continue
+// without a second login round-trip.
+export const changePasswordController = async (req, res) => {
+    const { id: userId } = req.user;
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await changePasswordService({ userId, currentPassword, newPassword });
+
+    res.cookie(COOKIE_NAME, result.refreshToken, COOKIE_OPTIONS);
+
+    const { refreshToken, ...safeResult } = result;
+
+    return sendSuccess(res, {
+        statusCode: 200,
+        message: 'Password changed successfully.',
+        data: safeResult,
     });
 };
 

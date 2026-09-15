@@ -1,0 +1,1002 @@
+{
+  "info": {
+    "_postman_id": "b3f2a6b0-7c2e-4b7a-9b0a-student-mgmt-sms-v2",
+    "name": "Student Management System API",
+    "description": "Full API collection for the SMS V2 backend.\n\n## How to use\n1. Run **Auth > Login (Admin)** first — it sets `{{accessToken}}` automatically from the response (see the request's Tests tab).\n2. If `mustChangePassword` is `true` in the login response (always true for a freshly seeded/registered account), call **Auth > Change Password** before anything else — protected routes reject requests until the password has been changed.\n3. Recommended order for a fresh database: **Admin - Academic Years > Create Academic Year** (also auto-provisions its 3 Terms + 3 Exams and captures `academicYearId`/`examId`) → **Admin - Grade Bands** → **Admin - Subjects** → **Admin - Classes** → **Admin - Teachers** → **Admin - Students** (incl. Subject Selections) → **Admin - Exams > Update Exam Period** with an `endDate` in the past (marks can only be entered once it's passed — there's no separate OPEN/PUBLISH toggle) → **Admin - Exams > Generate MarkSheets** → **Teacher Portal > Enter/Update Mark**.\n4. Requests that create a resource (Register Student/Teacher, Create Subject/Class/Academic Year/Grade Band, Enter Mark) automatically capture the new id into a collection variable (`studentId`, `teacherId`, `subjectId`, `classId`, `academicYearId`, `examId`, `gradeBandId`, `markId`) so later requests in the same (or a related) folder work immediately without manual copy-pasting.\n5. Switch roles by re-running the matching **Auth > Login (...)** request — it overwrites `{{accessToken}}` with that role's token.\n\n## Not covered by this collection\n`GradeLevel` has no CRUD of its own — Class creation accepts a plain `gradeLevel` number and the backend finds-or-creates the matching GradeLevel row automatically. `Term`s are never created/deleted directly — they're auto-provisioned (3 per year) by Create Academic Year; only their name/dates are editable.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000/api", "type": "string" },
+    { "key": "serverRoot", "value": "http://localhost:8000", "type": "string", "description": "Used only by Health Check — that route is mounted outside /api." },
+    { "key": "accessToken", "value": "", "type": "string" },
+    { "key": "resetToken", "value": "", "type": "string", "description": "Raw password-reset token — copy from the console/SMTP email log after calling Forgot Password (dev email provider logs it)." },
+    { "key": "academicYearId", "value": "", "type": "string", "description": "Auto-set by Create Academic Year." },
+    { "key": "termId", "value": "", "type": "string", "description": "Auto-set by Get Term By Id." },
+    { "key": "examId", "value": "", "type": "string", "description": "Auto-set by Create Academic Year (Term 1's exam)." },
+    { "key": "gradeBandId", "value": "", "type": "string", "description": "Auto-set by Create Grade Band." },
+    { "key": "studentId", "value": "", "type": "string" },
+    { "key": "teacherId", "value": "", "type": "string" },
+    { "key": "subjectId", "value": "", "type": "string" },
+    { "key": "classId", "value": "", "type": "string" },
+    { "key": "markId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login (Admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.collectionVariables.set('accessToken', data.accessToken);",
+                  "    console.log('mustChangePassword:', data.user.mustChangePassword);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"admin\",\n    \"password\": \"YourAdminPassword#123\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+            "description": "Log in with any role's username/password — the account role determines which portal/admin routes the resulting token can reach. Response sets an httpOnly refresh-token cookie (scoped to /api/auth) in addition to the JSON body's accessToken."
+          }
+        },
+        {
+          "name": "Login (Teacher)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('accessToken', pm.response.json().data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"username\": \"t_johnsmith\",\n    \"password\": \"TeacherPassword#123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Login (Student)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('accessToken', pm.response.json().data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"username\": \"adm_2026_001\",\n    \"password\": \"StudentPassword#123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Change Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('accessToken', pm.response.json().data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"YourAdminPassword#123\",\n    \"newPassword\": \"NewPassword#456\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/change-password", "host": ["{{baseUrl}}"], "path": ["auth", "change-password"] },
+            "description": "Serves BOTH the mandatory first-login password change (when the logged-in account's mustChangePassword is true) and a later voluntary change. Returns a fresh token pair — this request's Tests tab updates {{accessToken}} automatically — and revokes every previously issued session for the account."
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "X-Requested-With", "value": "XMLHttpRequest" }],
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] },
+            "description": "Uses the httpOnly refresh-token cookie set by Login/Change Password — Postman's cookie jar sends it automatically as long as these requests ran in the same Postman session/domain. No body."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Requested-With", "value": "XMLHttpRequest" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        },
+        {
+          "name": "Logout All Devices",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/logout-all", "host": ["{{baseUrl}}"], "path": ["auth", "logout-all"] }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n    \"email\": \"admin@school.local\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/forgot-password", "host": ["{{baseUrl}}"], "path": ["auth", "forgot-password"] },
+            "description": "Always returns a generic success message regardless of whether the email exists (no account enumeration). Check the email worker's console/SMTP log for the reset link/token in dev."
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewPassword#456\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/reset-password", "host": ["{{baseUrl}}"], "path": ["auth", "reset-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile (Self)",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/profile", "host": ["{{baseUrl}}"], "path": ["profile"] },
+            "description": "Works for any authenticated role (admin/teacher/student) — the only self-service route in this module. Reachable even before completing the mandatory first-login password change."
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"new_username\",\n    \"email\": \"new-email@example.com\",\n    \"photoUrl\": \"https://example.com/avatar.jpg\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/profile", "host": ["{{baseUrl}}"], "path": ["profile"] },
+            "description": "All fields optional — send only what you're changing (at least one required). `photoUrl: null` clears the photo."
+          }
+        },
+        {
+          "name": "Delete My Account",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/profile", "host": ["{{baseUrl}}"], "path": ["profile"] },
+            "description": "Self-delete — hard-deletes the User row. Distinct from the admin Deactivate endpoints for students/teachers, which soft-delete instead."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Students",
+      "description": "Admin-only (SCHOOL_ADMIN role required). All routes require the caller's own mustChangePassword to already be false.",
+      "item": [
+        {
+          "name": "Register Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('studentId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"firstName\": \"Jane\",\n    \"lastName\": \"Doe\",\n    \"email\": \"jane.doe@example.com\",\n    \"admissionNumber\": \"ADM-2026-001\",\n    \"dateOfBirth\": \"2012-05-15\",\n    \"gender\": \"FEMALE\",\n    \"guardianName\": \"John Doe\",\n    \"guardianPhone\": \"+94771234567\",\n    \"academicYearId\": \"{{academicYearId}}\",\n    \"classId\": \"{{classId}}\",\n    \"subjectIds\": [\"{{subjectId}}\"]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/students", "host": ["{{baseUrl}}"], "path": ["students"] },
+            "description": "Creates the student's User account (username derived from admissionNumber) + StudentProfile + StudentClassEnrollment, and emails a system-generated one-time password. guardianName/guardianPhone are optional.\n\n`subjectIds` is also optional (defaults to `[]`) — the subjects this student is taking for `academicYearId`, entered right here on the registration form instead of a separate call. Each must be an existing, active subject; invalid ones 404 the whole request (nothing is created). Can also be set/changed later via **Get/Set Subject Selections** below — a later `PUT .../subject-selections` call REPLACES this initial set, it doesn't add to it."
+          }
+        },
+        {
+          "name": "List Students",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/students?page=1&limit=20&q=&academicYearId=&classId=&gender=&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["students"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "q", "value": "", "description": "Searches name, admission number, email", "disabled": true },
+                { "key": "academicYearId", "value": "", "disabled": true },
+                { "key": "classId", "value": "", "disabled": true },
+                { "key": "gender", "value": "", "description": "MALE | FEMALE | OTHER", "disabled": true },
+                { "key": "status", "value": "all", "description": "active | inactive | all" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Student By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["students", "{{studentId}}"] }
+          }
+        },
+        {
+          "name": "Update Student",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"guardianPhone\": \"+94779876543\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["students", "{{studentId}}"] },
+            "description": "All fields optional (firstName, lastName, email, admissionNumber, dateOfBirth, gender, guardianName, guardianPhone). To change enrollment, send BOTH academicYearId and classId together — sending only one is rejected. Example enrollment change:\n{\n  \"academicYearId\": \"{{academicYearId}}\",\n  \"classId\": \"{{classId}}\"\n}\nThis ends the current StudentClassEnrollment row and creates a new one — history is preserved, never overwritten."
+          }
+        },
+        {
+          "name": "Deactivate Student",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["students", "{{studentId}}"] },
+            "description": "Soft delete (User.isActive=false) — never hard-deleted, so marks/enrollment history is preserved. Ends the current enrollment, revokes all sessions. A second call on an already-deactivated student returns 409."
+          }
+        },
+        {
+          "name": "Get Subject Selections",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}/subject-selections?academicYearId={{academicYearId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}", "subject-selections"],
+              "query": [{ "key": "academicYearId", "value": "{{academicYearId}}" }]
+            },
+            "description": "The student's active subject selections for one academic year — the authoritative source MarkSheet generation reads (never GradeLevelSubjects, never \"everyone in the class\")."
+          }
+        },
+        {
+          "name": "Set Subject Selections",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"academicYearId\": \"{{academicYearId}}\",\n    \"subjectIds\": [\"{{subjectId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/students/{{studentId}}/subject-selections",
+              "host": ["{{baseUrl}}"],
+              "path": ["students", "{{studentId}}", "subject-selections"]
+            },
+            "description": "REPLACES the student's entire active selection set for that year (diff-synced, not appended) — subjects left out of `subjectIds` are deactivated, not deleted. Pass an empty array to clear all selections. Each subject must exist and be active."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Teachers",
+      "description": "Admin-only (SCHOOL_ADMIN role required).",
+      "item": [
+        {
+          "name": "Register Teacher",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('teacherId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Smith\",\n    \"email\": \"john.smith@example.com\",\n    \"employeeNo\": \"EMP-001\",\n    \"phone\": \"+94771111111\",\n    \"gender\": \"MALE\",\n    \"joinDate\": \"2020-01-10\",\n    \"subjectId\": \"{{subjectId}}\",\n    \"classIds\": [\"{{classId}}\"],\n    \"classTeacherOfId\": \"{{classId}}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/teachers", "host": ["{{baseUrl}}"], "path": ["teachers"] },
+            "description": "A teacher has exactly ONE subject (system-wide rule, enforced at the DB level). `classIds` (which classes they teach that subject to) and `classTeacherOfId` are both optional — omit classTeacherOfId entirely for a normal (non-class-teacher) teacher. All classIds/classTeacherOfId must belong to the CURRENT academic year (AcademicYear.isCurrent) — there's no academicYearId field on this endpoint, it's resolved automatically."
+          }
+        },
+        {
+          "name": "List Teachers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/teachers?page=1&limit=20&q=&subjectId=&classId=&classTeacherOnly=&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["teachers"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "q", "value": "", "description": "Searches name, employee number, email", "disabled": true },
+                { "key": "subjectId", "value": "", "disabled": true },
+                { "key": "classId", "value": "", "description": "Filters to teachers with an active teaching assignment for this class", "disabled": true },
+                { "key": "classTeacherOnly", "value": "true", "disabled": true },
+                { "key": "status", "value": "all", "description": "active | inactive | all" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Teacher By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/teachers/{{teacherId}}", "host": ["{{baseUrl}}"], "path": ["teachers", "{{teacherId}}"] }
+          }
+        },
+        {
+          "name": "Update Teacher",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"phone\": \"+94770000000\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/teachers/{{teacherId}}", "host": ["{{baseUrl}}"], "path": ["teachers", "{{teacherId}}"] },
+            "description": "All fields optional (firstName, lastName, email, phone, gender, joinDate, employeeNo, subjectId, classIds, classTeacherOfId).\n\n- `classIds`, when present, REPLACES the teacher's active teaching-assignment set (diff-synced against history, not appended) — e.g. \"classIds\": [\"{{classId}}\"].\n- `classTeacherOfId` has three distinct states: omit the key entirely = don't touch class-teacher status; `null` = remove class-teacher responsibility; a class id = assign/move it to that class.\n- Changing `subjectId` ends all currently-active teaching assignments (they were tied to the old subject)."
+          }
+        },
+        {
+          "name": "Deactivate Teacher",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/teachers/{{teacherId}}", "host": ["{{baseUrl}}"], "path": ["teachers", "{{teacherId}}"] },
+            "description": "Soft delete. Ends all active subject/teaching assignments, clears the current year's class-teacher slot (so the class can get a new one), revokes all sessions."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Subjects",
+      "description": "Admin-only (SCHOOL_ADMIN role required).",
+      "item": [
+        {
+          "name": "Create Subject",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('subjectId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Mathematics\",\n    \"code\": \"MATH\",\n    \"isActive\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/subjects", "host": ["{{baseUrl}}"], "path": ["subjects"] },
+            "description": "`code` is optional; if given, it's normalized to uppercase. Both name and code uniqueness are case-insensitive (\"Mathematics\"/\"mathematics\" are treated as the same subject)."
+          }
+        },
+        {
+          "name": "List Subjects",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/subjects?page=1&limit=20&q=&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["subjects"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "q", "value": "", "description": "Searches name and code", "disabled": true },
+                { "key": "status", "value": "all", "description": "active | inactive | all" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Subject By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/subjects/{{subjectId}}", "host": ["{{baseUrl}}"], "path": ["subjects", "{{subjectId}}"] },
+            "description": "Response includes teacherCount / teachingAssignmentCount (active-only counts)."
+          }
+        },
+        {
+          "name": "Update Subject",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"name\": \"Mathematics (Core)\"\n}" },
+            "url": { "raw": "{{baseUrl}}/subjects/{{subjectId}}", "host": ["{{baseUrl}}"], "path": ["subjects", "{{subjectId}}"] },
+            "description": "All fields optional (name, code, isActive). Renaming never breaks existing teacher assignments/marks — those reference the subject by id."
+          }
+        },
+        {
+          "name": "Delete Subject",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/subjects/{{subjectId}}", "host": ["{{baseUrl}}"], "path": ["subjects", "{{subjectId}}"] },
+            "description": "Hard-deletes only if the subject has NEVER been referenced by any teacher/assignment/selection/mark sheet. Otherwise soft-deletes (isActive=false) so history stays valid. Response's `hardDeleted` field tells you which happened. A second call on an already-deactivated subject returns 409."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Classes",
+      "description": "Admin-only (SCHOOL_ADMIN role required).",
+      "item": [
+        {
+          "name": "Create Class",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('classId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"8C\",\n    \"gradeLevel\": 8,\n    \"academicYearId\": \"{{academicYearId}}\",\n    \"isActive\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/classes", "host": ["{{baseUrl}}"], "path": ["classes"] },
+            "description": "`gradeLevel` is a plain integer (e.g. 8) — there's no separate Grade-Level management endpoint; the backend finds-or-creates the matching GradeLevel row automatically, validated against the school's configured grade range (SchoolConfig.minGradeLevel/maxGradeLevel, default 6-13). name+gradeLevel+academicYearId together must be unique (case-insensitive)."
+          }
+        },
+        {
+          "name": "List Classes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/classes?page=1&limit=20&q=&academicYearId=&gradeLevel=&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["classes"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "q", "value": "", "description": "Searches class name", "disabled": true },
+                { "key": "academicYearId", "value": "", "disabled": true },
+                { "key": "gradeLevel", "value": "", "description": "integer, e.g. 8", "disabled": true },
+                { "key": "status", "value": "all", "description": "active | inactive | all" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Class By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/classes/{{classId}}", "host": ["{{baseUrl}}"], "path": ["classes", "{{classId}}"] },
+            "description": "Response includes currentStudentCount, the assigned classTeacher (if any), and the active teachingAssignments (subject + teacher pairs)."
+          }
+        },
+        {
+          "name": "Update Class",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"name\": \"8C-Renamed\"\n}" },
+            "url": { "raw": "{{baseUrl}}/classes/{{classId}}", "host": ["{{baseUrl}}"], "path": ["classes", "{{classId}}"] },
+            "description": "`name`/`isActive` are always editable. `academicYearId`/`gradeLevel` are rejected (409) once the class has ANY enrollment/mark-sheet/report history — changing a used class's year/grade would misrepresent that history."
+          }
+        },
+        {
+          "name": "Delete Class",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/classes/{{classId}}", "host": ["{{baseUrl}}"], "path": ["classes", "{{classId}}"] },
+            "description": "Three tiers: (1) 409 if any student is CURRENTLY enrolled — move them first via Update Student; (2) soft-delete (isActive=false, ends active teaching assignments, clears class-teacher) if there's historical enrollment/marks/reports; (3) hard-delete only if the class was never used at all. Response's `hardDeleted` field tells you which happened."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Academic Years",
+      "description": "Admin-only (SCHOOL_ADMIN role required). Terms are never created/deleted directly — they're always auto-provisioned (exactly 3, evenly spanning the year) together with their Academic Year; only their name/dates are editable, and each Term detail includes its one Exam nested.",
+      "item": [
+        {
+          "name": "Create Academic Year",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const data = pm.response.json().data;",
+                  "    pm.collectionVariables.set('academicYearId', data.id);",
+                  "    const firstExam = data.terms?.[0]?.exam;",
+                  "    if (firstExam) pm.collectionVariables.set('examId', firstExam.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"2026\",\n    \"startDate\": \"2026-01-01\",\n    \"endDate\": \"2026-12-31\",\n    \"isCurrent\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/academic-years", "host": ["{{baseUrl}}"], "path": ["academic-years"] },
+            "description": "In one transaction: creates the AcademicYear, divides [startDate, endDate] into 3 equal consecutive Terms (\"Term 1\"/\"Term 2\"/\"Term 3\"), and one DRAFT Exam per Term (\"Term Test 1..3\") — the admin never creates a Term/Exam directly. `isCurrent: true` automatically clears `isCurrent` on every other academic year (singleton — there's only ever one \"current\" year). This request's Tests tab captures `academicYearId` and the first term's `examId`."
+          }
+        },
+        {
+          "name": "List Academic Years",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/academic-years?page=1&limit=20&q=&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["academic-years"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "q", "value": "", "description": "Searches name", "disabled": true },
+                { "key": "status", "value": "all", "description": "current | all" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Academic Year By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/academic-years/{{academicYearId}}", "host": ["{{baseUrl}}"], "path": ["academic-years", "{{academicYearId}}"] },
+            "description": "Response includes all 3 nested terms, each with its one exam — in one query."
+          }
+        },
+        {
+          "name": "Update Academic Year",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"isCurrent\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/academic-years/{{academicYearId}}", "host": ["{{baseUrl}}"], "path": ["academic-years", "{{academicYearId}}"] },
+            "description": "All fields optional (name, startDate, endDate, isCurrent). Setting `isCurrent: true` clears every other year's flag in the same transaction. No DELETE endpoint — academic years are never removed."
+          }
+        },
+        {
+          "name": "List Terms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/academic-years/{{academicYearId}}/terms", "host": ["{{baseUrl}}"], "path": ["academic-years", "{{academicYearId}}", "terms"] }
+          }
+        },
+        {
+          "name": "Get Term By Id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('termId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/academic-years/{{academicYearId}}/terms/{{termId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["academic-years", "{{academicYearId}}", "terms", "{{termId}}"]
+            },
+            "description": "Copy a term id from List Terms into {{termId}} first (or run List Terms and paste one in) — there's no list-and-capture-first-item convenience here since a year always has 3 terms."
+          }
+        },
+        {
+          "name": "Update Term",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"name\": \"First Term\"\n}" },
+            "url": {
+              "raw": "{{baseUrl}}/academic-years/{{academicYearId}}/terms/{{termId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["academic-years", "{{academicYearId}}", "terms", "{{termId}}"]
+            },
+            "description": "Only `name`/`startDate`/`endDate` are editable — `sequence` and the parent academic year are structural and immutable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Exams",
+      "description": "Admin-only (SCHOOL_ADMIN role required). Exams are never created/deleted directly — they're auto-provisioned with their Term by Create Academic Year.",
+      "item": [
+        {
+          "name": "Get Exam By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/exams/{{examId}}", "host": ["{{baseUrl}}"], "path": ["exams", "{{examId}}"] },
+            "description": "Includes term/academicYear context (with the term's own date range) and a markSheetCount summary. `isEntryOpen` mirrors the exact check marks entry uses: true once `endDate` is set AND has passed."
+          }
+        },
+        {
+          "name": "Update Exam Period",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"startDate\": \"2026-03-01\",\n    \"endDate\": \"2026-03-10\"\n}" },
+            "url": { "raw": "{{baseUrl}}/exams/{{examId}}", "host": ["{{baseUrl}}"], "path": ["exams", "{{examId}}"] },
+            "description": "Sets the exam period (date range) for this term — the exam's only mutable attribute. The system deliberately does NOT track a per-subject exam timetable, only this one range per term. Both dates must fall within the parent Term's own date range (409 otherwise) and startDate must be before endDate. Left unset (null/null) when the Academic Year is first created — the admin configures it later, once the school finalizes it.\n\nThis is also the entry gate: a teacher cannot enter/update a mark for this exam until `endDate` has passed (see Teacher Portal > Enter Mark). There is no separate \"publish\" step — once entered, a mark is immediately visible to the student (see Student Portal > Get My Marks)."
+          }
+        },
+        {
+          "name": "Generate MarkSheets",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/exams/{{examId}}/generate-marksheets", "host": ["{{baseUrl}}"], "path": ["exams", "{{examId}}", "generate-marksheets"] },
+            "description": "Idempotent reconciliation: creates exactly one MarkSheet per (class, subject) combination that has at least one currently-enrolled student with an active selection for that subject — never per student, never for a subject nobody in the class takes — and one Mark per eligible student inside it. Safe to re-run any time (e.g. after new enrollments/subject selections) — only fills in what's missing, never touches or duplicates existing MarkSheets/Marks. Response includes `unresolved: [{classId, subjectId}]` for any (class, subject) combination with no matching TeachingAssignment — those are skipped, never given an arbitrary teacher."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Grade Bands",
+      "description": "Admin-only (SCHOOL_ADMIN role required). Nothing references GradeBand by foreign key (Mark.grade is a plain string snapshot) so Delete is always a straightforward hard delete.",
+      "item": [
+        {
+          "name": "Create Grade Band",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('gradeBandId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"grade\": \"A\",\n    \"minMark\": 75,\n    \"maxMark\": 100,\n    \"gradePoint\": 4,\n    \"isPassing\": true,\n    \"description\": \"Distinction\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/grade-bands", "host": ["{{baseUrl}}"], "path": ["grade-bands"] },
+            "description": "0 ≤ minMark ≤ maxMark ≤ 100 (100 is Mark.maxMarks' default — the only scale in this schema). The range must not numerically overlap any other existing band → 409 if it does."
+          }
+        },
+        {
+          "name": "List Grade Bands",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/grade-bands?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["grade-bands"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Grade Band By Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/grade-bands/{{gradeBandId}}", "host": ["{{baseUrl}}"], "path": ["grade-bands", "{{gradeBandId}}"] }
+          }
+        },
+        {
+          "name": "Update Grade Band",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"description\": \"Distinction pass\"\n}" },
+            "url": { "raw": "{{baseUrl}}/grade-bands/{{gradeBandId}}", "host": ["{{baseUrl}}"], "path": ["grade-bands", "{{gradeBandId}}"] },
+            "description": "All fields optional. Changing minMark/maxMark is re-checked against every OTHER band for overlap. Editing a band never rewrites grades already snapshotted onto existing Marks (Mark.grade is resolved once, at save time)."
+          }
+        },
+        {
+          "name": "Delete Grade Band",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/grade-bands/{{gradeBandId}}", "host": ["{{baseUrl}}"], "path": ["grade-bands", "{{gradeBandId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teacher Portal (Self)",
+      "description": "TEACHER role required. Every endpoint derives its scope from the authenticated teacher's own subject + teaching assignments + class-teacher status — never from client-supplied ids.",
+      "item": [
+        {
+          "name": "Get My Teacher Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/teacher/me", "host": ["{{baseUrl}}"], "path": ["teacher", "me"] }
+          }
+        },
+        {
+          "name": "Get My Classes",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/teacher/classes", "host": ["{{baseUrl}}"], "path": ["teacher", "classes"] },
+            "description": "Returns { subject, teachingClasses[], classTeacherOf } for the current academic year."
+          }
+        },
+        {
+          "name": "Get My Students",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/teacher/students?page=1&limit=20&classId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher", "students"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "classId", "value": "", "description": "Must be one of the teacher's own authorized classes — otherwise returns an empty list, not an error", "disabled": true }
+              ]
+            },
+            "description": "Authorized scope = teaching-assignment classes + (if class teacher) the responsible class."
+          }
+        },
+        {
+          "name": "List My Marks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/teacher/marks?page=1&limit=20&classId=&subjectId=&examId=&termId=&studentId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher", "marks"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "classId", "value": "{{classId}}", "disabled": true },
+                { "key": "subjectId", "value": "{{subjectId}}", "disabled": true },
+                { "key": "examId", "value": "{{examId}}", "disabled": true },
+                { "key": "termId", "value": "{{termId}}", "disabled": true },
+                { "key": "studentId", "value": "{{studentId}}", "disabled": true }
+              ]
+            },
+            "description": "Read scope = own subject across taught classes, PLUS (if class teacher) any subject for the responsible class. Any filter outside that scope returns an empty list rather than an error."
+          }
+        },
+        {
+          "name": "Enter Mark",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.collectionVariables.set('markId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"studentId\": \"{{studentId}}\",\n    \"examId\": \"{{examId}}\",\n    \"marksObtained\": 85,\n    \"isAbsent\": false,\n    \"remarks\": \"Good work\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/teacher/marks", "host": ["{{baseUrl}}"], "path": ["teacher", "marks"] },
+            "description": "Deliberately NO subjectId/classId in the body — the subject is always the teacher's own (server-resolved) and the class is always the student's current enrollment; both are cross-checked against the teacher's actual teaching assignment before anything is written. `studentId` here is the User id (same id GET /students returns), not the internal StudentProfile id. Only works for exams in the CURRENT academic year, and only once that exam's date range has ended — see Admin - Exams > Update Exam Period; 409 with a clear message if the period isn't configured yet, or hasn't ended. Set `isAbsent: true` to omit marksObtained."
+          }
+        },
+        {
+          "name": "Update Mark",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"marksObtained\": 90,\n    \"remarks\": \"Revised after recheck\"\n}" },
+            "url": { "raw": "{{baseUrl}}/teacher/marks/{{markId}}", "host": ["{{baseUrl}}"], "path": ["teacher", "marks", "{{markId}}"] },
+            "description": "Ownership is re-derived from the CALLER's current subject+teaching-assignment every time — not from who originally entered the mark. Only works while the mark sheet is still in DRAFT status, and only once the exam's date range has ended (same gate as Enter Mark)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Student Portal (Self)",
+      "description": "STUDENT role required. Read-only, strictly scoped to the authenticated student's own record — there is no id-in-path variant of either endpoint.",
+      "item": [
+        {
+          "name": "Get My Student Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/student/me", "host": ["{{baseUrl}}"], "path": ["student", "me"] }
+          }
+        },
+        {
+          "name": "Get My Marks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/student/me/marks?page=1&limit=20&subjectId=&academicYearId=&examId=&termId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["student", "me", "marks"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "subjectId", "value": "{{subjectId}}", "disabled": true },
+                { "key": "academicYearId", "value": "{{academicYearId}}", "disabled": true },
+                { "key": "examId", "value": "{{examId}}", "disabled": true },
+                { "key": "termId", "value": "{{termId}}", "description": "View one term's marks at a time — the school has 3 terms/year, each with one exam.", "disabled": true }
+              ]
+            },
+            "description": "A mark shows up here the moment a teacher has actually entered it (a value, or isAbsent) — no separate publish/approval step. A reconciliation-generated placeholder (Admin - Exams > Generate MarkSheets, before any value is entered) never appears. Filter by `termId` to view one term's marks at a time."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{serverRoot}}/health", "host": ["{{serverRoot}}"], "path": ["health"] },
+            "description": "NOTE: this route is mounted at /health (not under /api like everything else). Requires authentication."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -11,7 +11,9 @@ const sanitizedUsername = z
         'Username can only contain lowercase letters, numbers, and underscores'
     );
 
-const strongPassword = z
+// Exported so other modules (e.g. student/teacher registration) validate
+// emails and passwords with the exact same rules instead of redefining them.
+export const strongPassword = z
     .string()
     .min(8, 'Password must be at least 8 characters')
     .max(128, 'Password is too long')
@@ -25,7 +27,7 @@ const strongPassword = z
         'Password contains invalid characters'
     );
 
-const sanitizedEmail = z
+export const sanitizedEmail = z
     .string()
     .trim()
     .toLowerCase()
@@ -48,15 +50,6 @@ export const loginSchema = z.object({
 });
 
 
-// Register schema
-export const registerSchema = z.object({
-    body: z.object({
-        username: sanitizedUsername,
-        email: sanitizedEmail,
-        password: strongPassword,
-    })
-});
-
 // forgot password schema
 export const forgotPasswordSchema = z.object({
     body: z.object({
@@ -75,6 +68,18 @@ export const resetPasswordSchema = z.object({
             .min(1, 'Reset token is required')
             .max(128, 'Invalid reset token format'),
 
+        newPassword: strongPassword,
+    }),
+});
+
+// change password schema — serves both the mandatory first-login change
+// and a later voluntary change (see auth.service.js#changePasswordService)
+export const changePasswordSchema = z.object({
+    body: z.object({
+        currentPassword: z
+            .string()
+            .min(1, 'Current password is required')
+            .max(128, 'Invalid current password'),
         newPassword: strongPassword,
     }),
 });

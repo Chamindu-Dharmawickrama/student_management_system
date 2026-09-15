@@ -12,8 +12,11 @@ export const toUserDTO = (user) => ({
     username: user.username,
     email: user.email,
     role: user.role,
-    avatarUrl: user.avatarUrl ?? null,
+    photoUrl: user.photoUrl ?? null,
     authProvider: user.authProvider ?? 'local',
+    // BR-25/FR-022: tells the frontend to open the mandatory password-change
+    // flow instead of the normal app — see §12/§13.
+    mustChangePassword: user.mustChangePassword ?? false,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
 });
@@ -23,11 +26,6 @@ export const toLoginResponseDTO = (user, accessToken, refreshToken) => ({
     accessToken,
     user: toUserDTO(user),
     refreshToken
-});
-
-// Shapes the data payload returned to the client after a successful registration.
-export const toRegistrationResponseDTO = (user) => ({
-    user: toUserDTO(user)
 });
 
 // Shapes the data payload returned to the client after a successful refresh.

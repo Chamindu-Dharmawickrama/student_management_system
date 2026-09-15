@@ -24,8 +24,8 @@ export const updateProfileSchema = z.object({
         .object({
             username: sanitizedUsername.optional(),
             email: sanitizedEmail.optional(),
-            // avatarUrl: null clears the avatar; a URL string sets a new one.
-            avatarUrl: z
+            // photoUrl: null clears the photo; a URL string sets a new one.
+            photoUrl: z
                 .string()
                 .url("Must be a valid URL")
                 .max(2048, "URL is too long")
@@ -36,7 +36,7 @@ export const updateProfileSchema = z.object({
             (data) =>
                 data.username !== undefined ||
                 data.email !== undefined ||
-                data.avatarUrl !== undefined,
-            "At least one field (username, email, or avatarUrl) must be provided.",
+                data.photoUrl !== undefined,
+            "At least one field (username, email, or photoUrl) must be provided.",
         ),
 });
