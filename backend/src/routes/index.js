@@ -10,6 +10,9 @@ import classRouter from "../modules/class/class.routes.js";
 import academicYearRouter from "../modules/academicYear/academicYear.routes.js";
 import examRouter from "../modules/exam/exam.routes.js";
 import gradeBandRouter from "../modules/gradeBand/gradeBand.routes.js";
+import markSheetRouter from "../modules/markSheet/markSheet.routes.js";
+import dashboardRouter from "../modules/dashboard/dashboard.routes.js";
+import reportRouter from "../modules/report/report.routes.js";
 
 const router = Router();
 
@@ -24,5 +27,8 @@ router.use("/classes", classRouter)
 router.use("/academic-years", academicYearRouter)
 router.use("/exams", examRouter)
 router.use("/grade-bands", gradeBandRouter)
+router.use("/marksheets", markSheetRouter)
+router.use("/dashboard", dashboardRouter)
+router.use("/reports", reportRouter)
 
 export default router;

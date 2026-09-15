@@ -73,6 +73,18 @@ export const deleteGradeBandService = async (id) => {
     await deleteGradeBandRow(id);
 };
 
+// Pure band-matching logic, split out of resolveGradeForMark so batch
+// callers (bulk mark entry, report generation) can load the bands ONCE for
+// the whole batch and resolve each row against the same in-memory list,
+// instead of one grade-band query per row.
+export const resolveGradeFromBands = (marksObtained, bands) => {
+    if (marksObtained === null || marksObtained === undefined) return null;
+
+    const value = Number(marksObtained);
+    const match = bands.find((b) => value >= b.minMark && value <= b.maxMark);
+    return match?.grade ?? null;
+};
+
 // §30/§31 — resolved once, at save time, and snapshotted into Mark.grade.
 // Never called on read, so changing GradeBand configuration later never
 // rewrites a mark that was already saved. Returns null (never throws) when
@@ -82,8 +94,6 @@ export const deleteGradeBandService = async (id) => {
 export const resolveGradeForMark = async (marksObtained) => {
     if (marksObtained === null || marksObtained === undefined) return null;
 
-    const value = Number(marksObtained);
     const bands = await findAllGradeBands();
-    const match = bands.find((b) => value >= b.minMark && value <= b.maxMark);
-    return match?.grade ?? null;
+    return resolveGradeFromBands(marksObtained, bands);
 };

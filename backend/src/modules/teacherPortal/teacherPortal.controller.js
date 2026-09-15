@@ -1,6 +1,6 @@
 import { sendSuccess } from "../../utils/apiResponse.js";
 import { getTeacherService } from "../teacher/teacher.service.js";
-import { createMarkService, updateMarkService, listTeacherMarksService } from "../marks/marks.service.js";
+import { createMarkService, updateMarkService, listTeacherMarksService, createBulkMarksService } from "../marks/marks.service.js";
 import { getMyClassesService, getMyStudentsService } from "./teacherPortal.service.js";
 
 // GET /teacher/me — reuses the admin detail service unchanged: User.id is
@@ -59,6 +59,17 @@ export const createMarkController = async (req, res) => {
         statusCode: 201,
         message: "Mark entered successfully.",
         data: mark,
+    });
+};
+
+// POST /teacher/marks/bulk
+export const bulkCreateMarksController = async (req, res) => {
+    const result = await createBulkMarksService(req.user.id, req.body);
+
+    return sendSuccess(res, {
+        statusCode: 200,
+        message: "Bulk marks recorded.",
+        data: result,
     });
 };
 

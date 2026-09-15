@@ -26,6 +26,34 @@ export const createMarkSchema = z.object({
         }),
 });
 
+// POST /teacher/marks/bulk — same per-entry rule as createMarkSchema
+// (marksObtained required unless isAbsent), and NO subjectId/classId/
+// teacherId here either — every entry is resolved server-side exactly like
+// the single-entry endpoint (marks.service.js#createBulkMarksService).
+const bulkEntrySchema = z
+    .object({
+        studentId: z.string().trim().min(1, "Student is required."),
+        isAbsent: z.boolean().optional().default(false),
+        marksObtained: marksObtained.optional(),
+        remarks: z.string().trim().max(500).optional(),
+    })
+    .refine((data) => data.isAbsent || data.marksObtained !== undefined, {
+        message: "marksObtained is required unless isAbsent is true.",
+        path: ["marksObtained"],
+    });
+
+export const bulkMarksSchema = z.object({
+    body: z
+        .object({
+            examId: z.string().trim().min(1, "Exam is required."),
+            entries: z.array(bulkEntrySchema).min(1, "At least one entry is required.").max(200, "A batch may contain at most 200 entries."),
+        })
+        .refine((data) => new Set(data.entries.map((e) => e.studentId)).size === data.entries.length, {
+            message: "Each studentId may only appear once per batch.",
+            path: ["entries"],
+        }),
+});
+
 // PATCH /teacher/marks/:markId
 export const updateMarkSchema = z.object({
     body: z

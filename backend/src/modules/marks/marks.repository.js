@@ -1,4 +1,5 @@
 import { getPrisma } from "../../config/database.js";
+import { STUDENT_VISIBLE_STATUSES } from "../markSheet/markSheet.status.js";
 
 // Every mark-shaped query includes exactly this — enough for both the
 // authorization check (markSheet.subjectId/classId/status) and the DTO
@@ -42,6 +43,16 @@ export const findStudentProfileByUserId = async (userId) => {
     return db.studentProfile.findUnique({
         where: { userId },
         select: { id: true, currentClassId: true },
+    });
+};
+
+// Batch version for bulk mark entry — one query for the whole entries array
+// instead of N findStudentProfileByUserId calls.
+export const findStudentProfilesByUserIds = async (userIds) => {
+    const db = getPrisma();
+    return db.studentProfile.findMany({
+        where: { userId: { in: userIds } },
+        select: { id: true, userId: true, currentClassId: true },
     });
 };
 
@@ -93,6 +104,30 @@ export const updateMarkTx = async (tx, id, data) => {
     return tx.mark.update({ where: { id }, data, include: MARK_INCLUDE });
 };
 
+// Bulk entry (marks.service.js#createBulkMarksService): which of these
+// (markSheetId, studentId) pairs already have a Mark row — read BEFORE the
+// upserts run, so created/updated counts are accurate even though every row
+// is written via one upsert call each.
+export const findExistingMarksTx = async (tx, markSheetIds, studentProfileIds) => {
+    return tx.mark.findMany({
+        where: { markSheetId: { in: markSheetIds }, studentId: { in: studentProfileIds } },
+        select: { markSheetId: true, studentId: true },
+    });
+};
+
+// Bulk entry's per-row write — update semantics if a mark for this student
+// on this sheet already exists, create otherwise. The @@unique([markSheetId,
+// studentId]) constraint is what makes this atomic under the DB's own
+// ON CONFLICT, same as the single-entry path's create-then-catch-P2002.
+export const upsertMarkTx = async (tx, markSheetId, studentProfileId, { marksObtained, isAbsent, remarks, grade }) => {
+    return tx.mark.upsert({
+        where: { markSheetId_studentId: { markSheetId, studentId: studentProfileId } },
+        update: { marksObtained, isAbsent, remarks, grade },
+        create: { markSheetId, studentId: studentProfileId, marksObtained, isAbsent, remarks, grade },
+        include: MARK_INCLUDE,
+    });
+};
+
 // Teacher's scoped marks list (§21/§37): the two authorized read "lenses"
 // — own subject across taught classes, OR (if class teacher) any subject
 // for the responsible class — combined as one OR, with every client filter
@@ -134,13 +169,11 @@ export const findMarksForTeacherScope = async ({ scope, filters, page, limit }) 
 };
 
 // Student's own marks — gated to results the student is actually meant to
-// see: the mark has actually been entered (a value or isAbsent), never a
-// reconciliation-generated empty placeholder. Since entry itself is only
-// ever allowed once the exam's date range has ended (marks.service.js),
-// "has a value" already implies "the exam period is over" — no separate
-// published/approved flag needed, per the school's own rule: "once the
-// examination date range has ended, teachers enter marks, students then
-// view them."
+// see: the mark has actually been entered (a value or isAbsent) AND its
+// sheet has been through the approval workflow (APPROVED or LOCKED — see
+// markSheet.status.js#STUDENT_VISIBLE_STATUSES). A teacher typing marks into
+// a DRAFT sheet, or one still SUBMITTED/REJECTED, does not make them visible
+// yet — only admin approval releases them.
 export const findMarksForStudent = async ({ studentProfileId, filters, page, limit }) => {
     const db = getPrisma();
     const { subjectId, academicYearId, examId, termId } = filters;
@@ -149,6 +182,7 @@ export const findMarksForStudent = async ({ studentProfileId, filters, page, lim
         studentId: studentProfileId,
         OR: [{ isAbsent: true }, { marksObtained: { not: null } }],
         markSheet: {
+            status: { in: Array.from(STUDENT_VISIBLE_STATUSES) },
             ...(subjectId ? { subjectId } : {}),
             ...(examId ? { examId } : {}),
             ...((academicYearId || termId)

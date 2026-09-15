@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b3f2a6b0-7c2e-4b7a-9b0a-student-mgmt-sms-v2",
     "name": "Student Management System API",
-    "description": "Full API collection for the SMS V2 backend.\n\n## How to use\n1. Run **Auth > Login (Admin)** first — it sets `{{accessToken}}` automatically from the response (see the request's Tests tab).\n2. If `mustChangePassword` is `true` in the login response (always true for a freshly seeded/registered account), call **Auth > Change Password** before anything else — protected routes reject requests until the password has been changed.\n3. Recommended order for a fresh database: **Admin - Academic Years > Create Academic Year** (also auto-provisions its 3 Terms + 3 Exams and captures `academicYearId`/`examId`) → **Admin - Grade Bands** → **Admin - Subjects** → **Admin - Classes** → **Admin - Teachers** → **Admin - Students** (incl. Subject Selections) → **Admin - Exams > Update Exam Period** with an `endDate` in the past (marks can only be entered once it's passed — there's no separate OPEN/PUBLISH toggle) → **Admin - Exams > Generate MarkSheets** → **Teacher Portal > Enter/Update Mark**.\n4. Requests that create a resource (Register Student/Teacher, Create Subject/Class/Academic Year/Grade Band, Enter Mark) automatically capture the new id into a collection variable (`studentId`, `teacherId`, `subjectId`, `classId`, `academicYearId`, `examId`, `gradeBandId`, `markId`) so later requests in the same (or a related) folder work immediately without manual copy-pasting.\n5. Switch roles by re-running the matching **Auth > Login (...)** request — it overwrites `{{accessToken}}` with that role's token.\n\n## Not covered by this collection\n`GradeLevel` has no CRUD of its own — Class creation accepts a plain `gradeLevel` number and the backend finds-or-creates the matching GradeLevel row automatically. `Term`s are never created/deleted directly — they're auto-provisioned (3 per year) by Create Academic Year; only their name/dates are editable.",
+    "description": "Full API collection for the SMS V2 backend.\n\n## How to use\n1. Run **Auth > Login (Admin)** first — it sets `{{accessToken}}` automatically from the response (see the request's Tests tab).\n2. If `mustChangePassword` is `true` in the login response (always true for a freshly seeded/registered account), call **Auth > Change Password** before anything else — protected routes reject requests until the password has been changed.\n3. Recommended order for a fresh database: **Admin - Academic Years > Create Academic Year** (also auto-provisions its 3 Terms + 3 Exams and captures `academicYearId`/`examId`) → **Admin - Grade Bands** → **Admin - Subjects** → **Admin - Classes** → **Admin - Teachers** → **Admin - Students** (incl. Subject Selections) → **Admin - Exams > Update Exam Period** with an `endDate` in the past (marks can only be entered once it's passed — there's no separate OPEN/PUBLISH toggle) → **Admin - Exams > Generate MarkSheets** → **Teacher Portal > Enter/Update Mark or Bulk Enter Marks** → **Admin/Teacher - Mark Sheets > Submit** (teacher) → **Approve** or **Reject** (admin) → **Lock** (admin). A mark only becomes visible to its student once its mark sheet is APPROVED or LOCKED — entering a value is no longer sufficient by itself.\n4. Requests that create a resource (Register Student/Teacher, Create Subject/Class/Academic Year/Grade Band, Enter Mark) automatically capture the new id into a collection variable (`studentId`, `teacherId`, `subjectId`, `classId`, `academicYearId`, `examId`, `gradeBandId`, `markId`, `markSheetId`) so later requests in the same (or a related) folder work immediately without manual copy-pasting.\n5. Switch roles by re-running the matching **Auth > Login (...)** request — it overwrites `{{accessToken}}` with that role's token.\n6. **Dashboard** and **Reports** are read-only — Reports additionally accepts `?format=json|pdf|excel` (json is the default; pdf/excel stream a file download instead of a JSON body, and Postman will offer to save the response — the request's `format` query param is disabled by default so it defaults to json).\n\n## Not covered by this collection\n`GradeLevel` has no CRUD of its own — Class creation accepts a plain `gradeLevel` number and the backend finds-or-creates the matching GradeLevel row automatically. `Term`s are never created/deleted directly — they're auto-provisioned (3 per year) by Create Academic Year; only their name/dates are editable.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -18,7 +18,9 @@
     { "key": "teacherId", "value": "", "type": "string" },
     { "key": "subjectId", "value": "", "type": "string" },
     { "key": "classId", "value": "", "type": "string" },
-    { "key": "markId", "value": "", "type": "string" }
+    { "key": "markId", "value": "", "type": "string" },
+    { "key": "markSheetId", "value": "", "type": "string", "description": "Auto-set by Get Mark Sheet By Id / List Mark Sheets (first item)." },
+    { "key": "reportId", "value": "", "type": "string", "description": "Not auto-capturable from a report response — reports don't return their persisted Report row's id in the body. Look it up via the database if needed." }
   ],
   "item": [
     {
@@ -750,7 +752,7 @@
             ],
             "body": { "mode": "raw", "raw": "{\n    \"startDate\": \"2026-03-01\",\n    \"endDate\": \"2026-03-10\"\n}" },
             "url": { "raw": "{{baseUrl}}/exams/{{examId}}", "host": ["{{baseUrl}}"], "path": ["exams", "{{examId}}"] },
-            "description": "Sets the exam period (date range) for this term — the exam's only mutable attribute. The system deliberately does NOT track a per-subject exam timetable, only this one range per term. Both dates must fall within the parent Term's own date range (409 otherwise) and startDate must be before endDate. Left unset (null/null) when the Academic Year is first created — the admin configures it later, once the school finalizes it.\n\nThis is also the entry gate: a teacher cannot enter/update a mark for this exam until `endDate` has passed (see Teacher Portal > Enter Mark). There is no separate \"publish\" step — once entered, a mark is immediately visible to the student (see Student Portal > Get My Marks)."
+            "description": "Sets the exam period (date range) for this term — the exam's only mutable attribute. The system deliberately does NOT track a per-subject exam timetable, only this one range per term. Both dates must fall within the parent Term's own date range (409 otherwise) and startDate must be before endDate. Left unset (null/null) when the Academic Year is first created — the admin configures it later, once the school finalizes it.\n\nThis is also the entry gate: a teacher cannot enter/update a mark for this exam until `endDate` has passed (see Teacher Portal > Enter Mark / Bulk Enter Marks). Entering a mark does NOT make it visible to the student by itself — see Admin/Teacher - Mark Sheets for the submit → approve/reject → lock workflow that actually releases it (Student Portal > Get My Marks)."
           }
         },
         {
@@ -845,6 +847,111 @@
       ]
     },
     {
+      "name": "Admin/Teacher - Mark Sheets",
+      "description": "SCHOOL_ADMIN and TEACHER (own scope only). Drives the DRAFT → SUBMITTED → APPROVED|REJECTED → LOCKED workflow (OD-05). A mark only becomes visible to its student once its sheet is APPROVED or LOCKED — see Student Portal > Get My Marks.",
+      "item": [
+        {
+          "name": "List Mark Sheets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const items = pm.response.json().data;",
+                  "    if (items?.[0]) pm.collectionVariables.set('markSheetId', items[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/marksheets?page=1&limit=20&examId=&termId=&classId=&subjectId=&status=&academicYearId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["marksheets"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "examId", "value": "{{examId}}", "disabled": true },
+                { "key": "termId", "value": "{{termId}}", "disabled": true },
+                { "key": "classId", "value": "{{classId}}", "disabled": true },
+                { "key": "subjectId", "value": "{{subjectId}}", "disabled": true },
+                { "key": "status", "value": "", "description": "DRAFT | SUBMITTED | APPROVED | REJECTED | LOCKED", "disabled": true },
+                { "key": "academicYearId", "value": "{{academicYearId}}", "disabled": true }
+              ]
+            },
+            "description": "A SCHOOL_ADMIN sees every mark sheet; a TEACHER sees only their own scope (own subject across taught classes, plus — if class teacher — any subject for the responsible class), same read-scope rule as List My Marks. This request's Tests tab captures the first result's id into `{{markSheetId}}`."
+          }
+        },
+        {
+          "name": "Get Mark Sheet By Id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    pm.collectionVariables.set('markSheetId', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/marksheets/{{markSheetId}}", "host": ["{{baseUrl}}"], "path": ["marksheets", "{{markSheetId}}"] },
+            "description": "Includes completion stats: { totalStudents, entered, absent, pending }."
+          }
+        },
+        {
+          "name": "Submit Mark Sheet",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/marksheets/{{markSheetId}}/submit", "host": ["{{baseUrl}}"], "path": ["marksheets", "{{markSheetId}}", "submit"] },
+            "description": "TEACHER only, and only the sheet's own entrant (markSheet.teacherId) — not just anyone in read-scope. DRAFT or REJECTED → SUBMITTED. 409 if any mark on the sheet is still a placeholder (no value, not marked absent) — the response names how many are outstanding. 409 naming the current/attempted status for any other invalid transition."
+          }
+        },
+        {
+          "name": "Approve Mark Sheet",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/marksheets/{{markSheetId}}/approve", "host": ["{{baseUrl}}"], "path": ["marksheets", "{{markSheetId}}", "approve"] },
+            "description": "SCHOOL_ADMIN only. SUBMITTED → APPROVED; records approvedById/approvedAt. This is what actually releases the sheet's marks to its students (Student Portal > Get My Marks) — entering a mark alone never does. 409 naming current/attempted status if the sheet isn't SUBMITTED."
+          }
+        },
+        {
+          "name": "Reject Mark Sheet",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n    \"reason\": \"Please double-check row 5 — marks look transposed.\"\n}" },
+            "url": { "raw": "{{baseUrl}}/marksheets/{{markSheetId}}/reject", "host": ["{{baseUrl}}"], "path": ["marksheets", "{{markSheetId}}", "reject"] },
+            "description": "SCHOOL_ADMIN only. SUBMITTED → REJECTED; `reason` is required (1-500 chars) and stored on the sheet. Clears any prior approvedById/approvedAt. A REJECTED sheet becomes editable again (Enter/Update/Bulk Enter Mark) so the teacher can fix and resubmit — see Submit Mark Sheet."
+          }
+        },
+        {
+          "name": "Lock Mark Sheet",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/marksheets/{{markSheetId}}/lock", "host": ["{{baseUrl}}"], "path": ["marksheets", "{{markSheetId}}", "lock"] },
+            "description": "SCHOOL_ADMIN only. APPROVED → LOCKED — terminal, no further transitions are ever allowed (every subsequent submit/approve/reject/lock call 409s naming LOCKED as the current status). Marks remain visible to students."
+          }
+        }
+      ]
+    },
+    {
       "name": "Teacher Portal (Self)",
       "description": "TEACHER role required. Every endpoint derives its scope from the authenticated teacher's own subject + teaching assignments + class-teacher status — never from client-supplied ids.",
       "item": [
@@ -931,7 +1038,23 @@
               "raw": "{\n    \"studentId\": \"{{studentId}}\",\n    \"examId\": \"{{examId}}\",\n    \"marksObtained\": 85,\n    \"isAbsent\": false,\n    \"remarks\": \"Good work\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/teacher/marks", "host": ["{{baseUrl}}"], "path": ["teacher", "marks"] },
-            "description": "Deliberately NO subjectId/classId in the body — the subject is always the teacher's own (server-resolved) and the class is always the student's current enrollment; both are cross-checked against the teacher's actual teaching assignment before anything is written. `studentId` here is the User id (same id GET /students returns), not the internal StudentProfile id. Only works for exams in the CURRENT academic year, and only once that exam's date range has ended — see Admin - Exams > Update Exam Period; 409 with a clear message if the period isn't configured yet, or hasn't ended. Set `isAbsent: true` to omit marksObtained."
+            "description": "Deliberately NO subjectId/classId in the body — the subject is always the teacher's own (server-resolved) and the class is always the student's current enrollment; both are cross-checked against the teacher's actual teaching assignment before anything is written. `studentId` here is the User id (same id GET /students returns), not the internal StudentProfile id. Only works for exams in the CURRENT academic year, and only once that exam's date range has ended — see Admin - Exams > Update Exam Period; 409 with a clear message if the period isn't configured yet, or hasn't ended. Set `isAbsent: true` to omit marksObtained. Only works while the mark sheet is DRAFT or REJECTED — 409 once it's been SUBMITTED/APPROVED/LOCKED (see Admin/Teacher - Mark Sheets)."
+          }
+        },
+        {
+          "name": "Bulk Enter Marks",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"examId\": \"{{examId}}\",\n    \"entries\": [\n        { \"studentId\": \"{{studentId}}\", \"marksObtained\": 85, \"remarks\": \"Good work\" }\n    ]\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/teacher/marks/bulk", "host": ["{{baseUrl}}"], "path": ["teacher", "marks", "bulk"] },
+            "description": "A whole class's worth of marks in one request (1-200 entries, `studentId` unique per batch) — the gradebook-grid endpoint. Same rules as Enter Mark (no subjectId/classId/teacherId; same exam-period gate; same DRAFT/REJECTED editability gate) applied to every entry, PLUS: upsert semantics (an entry for a student who already has a mark UPDATES it, otherwise CREATES it — safe to re-save the whole grid), and the entire batch is written in ONE transaction — if any entry fails authorization (wrong class, subject not selected, student not found) the WHOLE batch is rejected with 403/404/409 naming every failing student in `details.failures`, and nothing is written. Rate-limited to 30/min. Response: `{ created, updated, marks: MarkDTO[] }`."
           }
         },
         {
@@ -944,7 +1067,7 @@
             ],
             "body": { "mode": "raw", "raw": "{\n    \"marksObtained\": 90,\n    \"remarks\": \"Revised after recheck\"\n}" },
             "url": { "raw": "{{baseUrl}}/teacher/marks/{{markId}}", "host": ["{{baseUrl}}"], "path": ["teacher", "marks", "{{markId}}"] },
-            "description": "Ownership is re-derived from the CALLER's current subject+teaching-assignment every time — not from who originally entered the mark. Only works while the mark sheet is still in DRAFT status, and only once the exam's date range has ended (same gate as Enter Mark)."
+            "description": "Ownership is re-derived from the CALLER's current subject+teaching-assignment every time — not from who originally entered the mark. Only works while the mark sheet is DRAFT or REJECTED, and only once the exam's date range has ended (same gate as Enter Mark)."
           }
         }
       ]
@@ -979,7 +1102,107 @@
                 { "key": "termId", "value": "{{termId}}", "description": "View one term's marks at a time — the school has 3 terms/year, each with one exam.", "disabled": true }
               ]
             },
-            "description": "A mark shows up here the moment a teacher has actually entered it (a value, or isAbsent) — no separate publish/approval step. A reconciliation-generated placeholder (Admin - Exams > Generate MarkSheets, before any value is entered) never appears. Filter by `termId` to view one term's marks at a time."
+            "description": "A mark shows up here only once BOTH are true: it actually holds real data (a value, or isAbsent — a reconciliation-generated placeholder never appears), AND its mark sheet has been through the approval workflow and is APPROVED or LOCKED (see Admin/Teacher - Mark Sheets). A teacher typing marks into a DRAFT/SUBMITTED/REJECTED sheet does not make them visible yet. Filter by `termId` to view one term's marks at a time."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Read-only landing-page statistics, one endpoint per role. Every count is scoped server-side (teacher via resolveTeacherScope, student via resolveStudentScope) — never from a client-supplied id.",
+      "item": [
+        {
+          "name": "Admin Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/admin?academicYearId=",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "admin"],
+              "query": [{ "key": "academicYearId", "value": "{{academicYearId}}", "description": "Defaults to the current academic year when omitted.", "disabled": true }]
+            },
+            "description": "SCHOOL_ADMIN only. `counts.students/teachers/activeStudents/inactiveStudents` are school-wide (account-level, not year-scoped); `counts.classes` IS scoped to the selected/current academic year. Also returns per-status mark sheet counts, each term's exam period + `isEntryOpen` + mark sheet count, how many exam periods are still unconfigured, how many accounts still have `mustChangePassword=true`, and the last 10 audit log entries."
+          }
+        },
+        {
+          "name": "Teacher Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/dashboard/teacher", "host": ["{{baseUrl}}"], "path": ["dashboard", "teacher"] },
+            "description": "TEACHER only. `totalStudents` is deduplicated across teaching classes + the class-teacher class (a student in both isn't double-counted). `pendingEntry` counts placeholder marks (no value, not absent) only on this teacher's own editable (DRAFT/REJECTED) mark sheets."
+          }
+        },
+        {
+          "name": "Student Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/dashboard/student", "host": ["{{baseUrl}}"], "path": ["dashboard", "student"] },
+            "description": "STUDENT only. Per term: `marksReleased` is true only once EVERY selected subject for that term is visible (APPROVED/LOCKED) — a partial release isn't badged as done. `latestTermSummary` is computed from the most recent term with at least one released subject."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "description": "Report cards and exports. Accepts `?format=json|pdf|excel` (default json — the primary, on-screen path; pdf/excel stream a file download and are NOT persisted server-side, only logged as a Report row). Authorization is always relationship-derived, never from a path param alone.",
+      "item": [
+        {
+          "name": "Student Term Report (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/reports/student/{{studentId}}/term/{{termId}}?format=json",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "student", "{{studentId}}", "term", "{{termId}}"],
+              "query": [{ "key": "format", "value": "json" }]
+            },
+            "description": "SCHOOL_ADMIN, or the student themself (compared against the caller's own id — never trusts `{{studentId}}` for identity when the caller is a STUDENT). One row per selected subject with marksObtained/maxMarks/grade/isPassing/remarks/absent flag, plus totals (subject count, total marks, average, overall grade, subjects passed/failed). A subject whose mark isn't yet released is EXCLUDED entirely when the caller is the student, but INCLUDED with its mark-sheet status as a label when the caller is an admin."
+          }
+        },
+        {
+          "name": "Student Term Report (PDF)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/reports/student/{{studentId}}/term/{{termId}}?format=pdf",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "student", "{{studentId}}", "term", "{{termId}}"],
+              "query": [{ "key": "format", "value": "pdf" }]
+            },
+            "description": "Same data and authorization as Student Term Report (JSON), streamed as a PDF attachment instead (swap `format=excel` for an .xlsx download). Rate-limited to 10/min per user — generation is comparatively expensive."
+          }
+        },
+        {
+          "name": "Class Mark Sheet Report (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/reports/class/{{classId}}/exam/{{examId}}?format=json",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "class", "{{classId}}", "exam", "{{examId}}"],
+              "query": [{ "key": "format", "value": "json" }]
+            },
+            "description": "SCHOOL_ADMIN, or a TEACHER with this class in their read scope (teaching assignments + class-teacher class). One row per student per subject taught in this class for this exam, plus class statistics: highest, lowest, average, pass rate, grade distribution. Unlike the student-facing report, every mark sheet status is included (this is an admin/teacher view, not a release-gated one)."
+          }
+        },
+        {
+          "name": "Class Mark Sheet Report (Excel)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/reports/class/{{classId}}/exam/{{examId}}?format=excel",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "class", "{{classId}}", "exam", "{{examId}}"],
+              "query": [{ "key": "format", "value": "excel" }]
+            },
+            "description": "Same data and authorization as Class Mark Sheet Report (JSON), streamed as an .xlsx attachment instead (swap `format=pdf` for a PDF download). Rate-limited to 10/min per user."
           }
         }
       ]
