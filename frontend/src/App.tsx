@@ -47,6 +47,14 @@ const StudentSubjectsPage = lazy(() => import("./features/studentPortal/pages/St
 const StudentReportPage = lazy(() => import("./features/studentPortal/pages/StudentReportPage"));
 const StudentProfilePage = lazy(() => import("./features/studentPortal/pages/StudentProfilePage"));
 
+const TeacherDashboardPage = lazy(() => import("./features/teacherPortal/pages/TeacherDashboardPage"));
+const TeacherClassesPage = lazy(() => import("./features/teacherPortal/pages/TeacherClassesPage"));
+const TeacherStudentsPage = lazy(() => import("./features/teacherPortal/pages/TeacherStudentsPage"));
+const GradebookPage = lazy(() => import("./features/teacherPortal/pages/GradebookPage"));
+const TeacherMarksheetsPage = lazy(() => import("./features/teacherPortal/pages/TeacherMarksheetsPage"));
+const TeacherMarksheetDetailPage = lazy(() => import("./features/teacherPortal/pages/TeacherMarksheetDetailPage"));
+const TeacherProfilePage = lazy(() => import("./features/teacherPortal/pages/TeacherProfilePage"));
+
 function FullPageFallback() {
     return <Spinner fullPage message="Loading…" />;
 }
@@ -143,15 +151,16 @@ export default function App() {
                                 </ProtectedRoute>
                             }
                         >
-                            <Route index element={<PlaceholderPage title="Teacher Dashboard" />} />
-                            <Route path="classes" element={<PlaceholderPage title="My Classes" />} />
-                            <Route path="students" element={<PlaceholderPage title="My Students" />} />
-                            <Route path="gradebook" element={<PlaceholderPage title="Gradebook" />} />
-                            <Route path="marksheets" element={<PlaceholderPage title="Mark Sheets" />} />
+                            <Route index element={<TeacherDashboardPage />} />
+                            <Route path="classes" element={<TeacherClassesPage />} />
+                            <Route path="students" element={<TeacherStudentsPage />} />
+                            <Route path="gradebook" element={<GradebookPage />} />
+                            <Route path="marksheets" element={<TeacherMarksheetsPage />} />
                             <Route
                                 path="marksheets/:id"
-                                element={<PlaceholderPage title="Mark Sheet Detail" />}
+                                element={<TeacherMarksheetDetailPage />}
                             />
+                            <Route path="profile" element={<TeacherProfilePage />} />
                         </Route>
 
                         <Route

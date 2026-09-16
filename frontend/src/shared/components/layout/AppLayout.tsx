@@ -74,7 +74,7 @@ export function AppLayout({ children }: AppLayoutProps) {
    if (!user) return null;
 
    return (
-      <div className="flex h-dvh w-full overflow-hidden bg-bg-app">
+      <div className="flex h-dvh w-full overflow-hidden bg-bg-app lg:gap-4">
          <aside
             className={`hidden shrink-0 border-r border-border bg-bg-card transition-[width] duration-(--transition-base) lg:flex ${collapsed ? "w-16" : "w-64"}`}
          >
