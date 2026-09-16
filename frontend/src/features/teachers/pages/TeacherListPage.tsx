@@ -15,10 +15,14 @@ import {
   ConfirmDialog,
   Alert,
   EmptyState,
+  SearchInput,
+  Select,
 } from "@/shared/components/ui";
 import { useGetTeachersQuery, useDeleteTeacherMutation } from "../api/teacherApi";
 
 import { useGetAcademicYearByIdQuery } from "@/features/academicYear/api/academicYearApi";
+import { useGetClassesQuery } from "@/features/classes/api/classesApi";
+import { useGetSubjectsQuery } from "@/features/subjects/api/subjectsApi";
 import { useAppSelector } from "@/app/hooks";
 import { ROUTES } from "@/constants/app.constants";
 import { getErrorMessage } from "@/types/api.types";
@@ -49,6 +53,24 @@ export default function TeacherListPage() {
     classTeacherOnly: classTeacherOnly || undefined,
     status,
   });
+
+  const { data: classesData } = useGetClassesQuery(
+    { page: 1, limit: 100, academicYearId: currentYearId || undefined },
+    { skip: !currentYearId }
+  );
+  
+  const { data: subjectsData } = useGetSubjectsQuery(
+    { page: 1, limit: 100, status: "active" },
+    { skip: !currentYearId }
+  );
+
+  const classOptions = classesData?.data
+    ? classesData.data.map((c) => ({ value: c.id, label: c.name }))
+    : [];
+    
+  const subjectOptions = subjectsData?.data
+    ? subjectsData.data.map((s) => ({ value: s.id, label: s.name }))
+    : [];
 
 
   const [deleteTeacher, { isLoading: isDeleting }] = useDeleteTeacherMutation();
@@ -105,11 +127,36 @@ export default function TeacherListPage() {
           setSearchParams(new URLSearchParams());
         }}
       >
+        <SearchInput
+          placeholder="Search teachers..."
+          value={q}
+          onChange={(value) => handleFilterChange("q", value)}
+          className="w-full sm:w-64"
+        />
+        <Select
+          value={classId}
+          onChange={(e) => handleFilterChange("classId", e.target.value)}
+          options={[{ value: "", label: "All Classes" }, ...classOptions]}
+        />
+        <Select
+          value={subjectId}
+          onChange={(e) => handleFilterChange("subjectId", e.target.value)}
+          options={[{ value: "", label: "All Subjects" }, ...subjectOptions]}
+        />
+        <Select
+          value={status}
+          onChange={(e) => handleFilterChange("status", e.target.value)}
+          options={[
+            { value: "active", label: "Active Only" },
+            { value: "inactive", label: "Inactive Only" },
+            { value: "all", label: "All Statuses" },
+          ]}
+        />
         <div className="flex items-center gap-2 text-sm text-text-primary ml-2">
           <input
             type="checkbox"
             checked={classTeacherOnly}
-            onChange={(e) => handleFilterChange("classTeacherOnly", e.target.checked)}
+            onChange={(e) => handleFilterChange("classTeacherOnly", e.target.checked ? "true" : "")}
             className="rounded border-border text-primary focus:ring-primary"
           />
           Class Teachers Only

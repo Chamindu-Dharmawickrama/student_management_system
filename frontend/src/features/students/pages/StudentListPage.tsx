@@ -14,11 +14,14 @@ import {
   DropdownMenu,
   ConfirmDialog,
   Alert,
-  EmptyState
+  EmptyState,
+  SearchInput,
+  Select
 } from "@/shared/components/ui";
 import { useGetStudentsQuery, useDeleteStudentMutation } from "../api/studentApi";
 
 import { useGetAcademicYearByIdQuery } from "@/features/academicYear/api/academicYearApi";
+import { useGetClassesQuery } from "@/features/classes/api/classesApi";
 import { useAppSelector } from "@/app/hooks";
 import { ROUTES } from "@/constants/app.constants";
 import { getErrorMessage } from "@/types/api.types";
@@ -49,6 +52,26 @@ export default function StudentListPage() {
     status,
   }, { skip: !currentYearId });
 
+
+  const { data: classesData } = useGetClassesQuery(
+    { page: 1, limit: 100, academicYearId: currentYearId || undefined },
+    { skip: !currentYearId }
+  );
+
+  const classOptions = classesData?.data
+    ? classesData.data.map((c) => ({ value: c.id, label: c.name }))
+    : [];
+
+  const updateParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) {
+      next.set(key, value);
+    } else {
+      next.delete(key);
+    }
+    next.set("page", "1");
+    setSearchParams(next);
+  };
 
   const [deleteStudent, { isLoading: isDeleting }] = useDeleteStudentMutation();
   const [studentToDelete, setStudentToDelete] = useState<{ id: string; name: string; admissionNumber: string } | null>(null);
@@ -85,10 +108,37 @@ export default function StudentListPage() {
         }
       />
 
-      <FilterBar
-        onClearAll={() => setSearchParams(new URLSearchParams())}
-      >
-        <div />
+      <FilterBar onClearAll={() => setSearchParams(new URLSearchParams())}>
+        <SearchInput
+          placeholder="Search students..."
+          value={q}
+          onChange={(value) => updateParam("q", value)}
+          className="w-full sm:w-64"
+        />
+        <Select
+          value={classId}
+          onChange={(e) => updateParam("classId", e.target.value)}
+          options={[{ value: "", label: "All Classes" }, ...classOptions]}
+        />
+        <Select
+          value={gender}
+          onChange={(e) => updateParam("gender", e.target.value)}
+          options={[
+            { value: "", label: "All Genders" },
+            { value: "MALE", label: "Male" },
+            { value: "FEMALE", label: "Female" },
+            { value: "OTHER", label: "Other" },
+          ]}
+        />
+        <Select
+          value={status}
+          onChange={(e) => updateParam("status", e.target.value)}
+          options={[
+            { value: "active", label: "Active Only" },
+            { value: "inactive", label: "Inactive Only" },
+            { value: "all", label: "All Statuses" },
+          ]}
+        />
       </FilterBar>
 
       <DataTable
