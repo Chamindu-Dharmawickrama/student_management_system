@@ -22,6 +22,17 @@ const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
+const AcademicYearsList = lazy(() => import("./features/academicYear/pages/AcademicYearsList"));
+const AcademicYearDetail = lazy(() => import("./features/academicYear/pages/AcademicYearDetail"));
+const ExamDetail = lazy(() => import("./features/academicYear/pages/ExamDetail"));
+
+const SubjectsList = lazy(() => import("./features/subjects/pages/SubjectsList"));
+
+const ClassesList = lazy(() => import("./features/classes/pages/ClassesList"));
+const ClassDetail = lazy(() => import("./features/classes/pages/ClassDetail"));
+
+const GradeBandsList = lazy(() => import("./features/gradeBands/pages/GradeBandsList"));
+
 function FullPageFallback() {
     return <Spinner fullPage message="Loading…" />;
 }
@@ -95,16 +106,16 @@ export default function App() {
                             <Route path="teachers/new" element={<PlaceholderPage title="New Teacher" />} />
                             <Route path="teachers/:id" element={<PlaceholderPage title="Teacher Detail" />} />
                             <Route path="teachers/:id/edit" element={<PlaceholderPage title="Edit Teacher" />} />
-                            <Route path="classes" element={<PlaceholderPage title="Classes" />} />
-                            <Route path="classes/:id" element={<PlaceholderPage title="Class Detail" />} />
-                            <Route path="subjects" element={<PlaceholderPage title="Subjects" />} />
-                            <Route path="academic-years" element={<PlaceholderPage title="Academic Years" />} />
+                            <Route path="classes" element={<ClassesList />} />
+                            <Route path="classes/:id" element={<ClassDetail />} />
+                            <Route path="subjects" element={<SubjectsList />} />
+                            <Route path="academic-years" element={<AcademicYearsList />} />
                             <Route
                                 path="academic-years/:id"
-                                element={<PlaceholderPage title="Academic Year Detail" />}
+                                element={<AcademicYearDetail />}
                             />
-                            <Route path="exams/:id" element={<PlaceholderPage title="Exam Detail" />} />
-                            <Route path="grade-bands" element={<PlaceholderPage title="Grade Bands" />} />
+                            <Route path="exams/:id" element={<ExamDetail />} />
+                            <Route path="grade-bands" element={<GradeBandsList />} />
                             <Route path="marksheets" element={<PlaceholderPage title="Mark Sheets" />} />
                             <Route path="marksheets/:id" element={<PlaceholderPage title="Mark Sheet Detail" />} />
                             <Route path="reports" element={<PlaceholderPage title="Reports" />} />

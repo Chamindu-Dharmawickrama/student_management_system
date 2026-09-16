@@ -13,6 +13,9 @@ export interface ApiResponse<T> {
   };
 }
 
+// Helper type for paginated responses where `meta` is required
+export type PaginatedResponse<T> = Required<Pick<ApiResponse<T>, 'meta'>> & Omit<ApiResponse<T>, 'meta'>;
+
 // Normalized API error 
 export interface ApiError {
   status: number;

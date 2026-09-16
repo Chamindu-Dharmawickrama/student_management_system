@@ -15,19 +15,21 @@ function readPersistedYearId(): string | null {
 }
 
 interface AcademicYearState {
-   selectedAcademicYearId: string | null;
+   currentYearId: string | null;
+   isReadOnly: boolean;
 }
 
 const initialState: AcademicYearState = {
-   selectedAcademicYearId: readPersistedYearId(),
+   currentYearId: readPersistedYearId(),
+   isReadOnly: false,
 };
 
 const academicYearSlice = createSlice({
    name: "academicYear",
    initialState,
    reducers: {
-      setSelectedAcademicYearId(state, action: PayloadAction<string | null>) {
-         state.selectedAcademicYearId = action.payload;
+      setCurrentYearId(state, action: PayloadAction<string | null>) {
+         state.currentYearId = action.payload;
          try {
             if (action.payload) {
                localStorage.setItem(STORAGE_KEY, action.payload);
@@ -38,24 +40,27 @@ const academicYearSlice = createSlice({
             // ignore storage errors (e.g. private browsing)
          }
       },
-      clearSelectedAcademicYear(state) {
-         state.selectedAcademicYearId = null;
+      clearCurrentYear(state) {
+         state.currentYearId = null;
          try {
             localStorage.removeItem(STORAGE_KEY);
          } catch {
             // ignore
          }
       },
+      setIsReadOnly(state, action: PayloadAction<boolean>) {
+         state.isReadOnly = action.payload;
+      }
    },
 });
 
-export const { setSelectedAcademicYearId, clearSelectedAcademicYear } =
+export const { setCurrentYearId, clearCurrentYear, setIsReadOnly } =
    academicYearSlice.actions;
 
-export const selectSelectedAcademicYearId = (state: RootState) =>
-   state.academicYear.selectedAcademicYearId;
+export const selectCurrentYearId = (state: RootState) =>
+   state.academicYear.currentYearId;
 
 export default academicYearSlice.reducer;
 
 // Clear the selection on logout, same registry used by every API cache.
-registerCacheReset((dispatch) => dispatch(clearSelectedAcademicYear()));
+registerCacheReset((dispatch) => dispatch(clearCurrentYear()));

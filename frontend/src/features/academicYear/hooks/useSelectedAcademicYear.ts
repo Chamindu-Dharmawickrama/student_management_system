@@ -2,8 +2,8 @@ import { useEffect, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/hooks";
 import { useGetAcademicYearsQuery } from "../api/academicYearApi";
 import {
-   selectSelectedAcademicYearId,
-   setSelectedAcademicYearId,
+   selectCurrentYearId,
+   setCurrentYearId,
 } from "../slices/academicYearSlice";
 import type { AcademicYearListItem } from "../types/academicYear.types";
 
@@ -26,7 +26,7 @@ export interface UseSelectedAcademicYearResult {
 export function useSelectedAcademicYear(): UseSelectedAcademicYearResult {
    const dispatch = useAppDispatch();
    const { data: years, isLoading } = useGetAcademicYearsQuery();
-   const persistedId = useAppSelector(selectSelectedAcademicYearId);
+   const persistedId = useAppSelector(selectCurrentYearId);
 
    const persistedYear = useMemo(
       () => years?.find((y) => y.id === persistedId) ?? null,
@@ -44,14 +44,14 @@ export function useSelectedAcademicYear(): UseSelectedAcademicYearResult {
    useEffect(() => {
       if (!years) return;
       if (year && year.id !== persistedId) {
-         dispatch(setSelectedAcademicYearId(year.id));
+         dispatch(setCurrentYearId(year.id));
       }
    }, [years, year, persistedId, dispatch]);
 
    return {
       year,
       yearId: year?.id ?? null,
-      setYear: (id: string) => dispatch(setSelectedAcademicYearId(id)),
+      setYear: (id: string) => dispatch(setCurrentYearId(id)),
       isCurrent: year?.isCurrent ?? false,
       isReadOnly: !!year && !year.isCurrent,
       isLoading,
