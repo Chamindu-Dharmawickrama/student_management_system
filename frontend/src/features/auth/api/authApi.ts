@@ -1,15 +1,14 @@
-import { baseQueryWithReauth } from "@/services/baseQuery";
+import { baseQueryWithReauth, resetAllCaches } from "@/services/baseQuery";
 import type { ApiResponse } from "@/types/api.types";
 import { createApi } from "@reduxjs/toolkit/query/react";
 import type {
    AuthResponseData,
+   ChangePasswordRequest,
    ForgotPasswordRequest,
    LoginRequest,
-   RegisterRequest,
    ResetPasswordRequest,
 } from "../types/auth.types";
 import { setCredentials, logout as logoutAction } from "../slices/authSlice";
-import { profileApi } from "@/features/profile/api/profileApi";
 
 export const authApi = createApi({
    reducerPath: "authApi",
@@ -28,16 +27,38 @@ export const authApi = createApi({
                      accessToken: data.data.accessToken,
                   }),
                );
-            } catch (error) {}
+            } catch {
+               /* login failed — nothing to sync */
+            }
          },
       }),
 
-      // register API
-      register: build.mutation<
-         ApiResponse<{ message: string }>,
-         RegisterRequest
+      // Change password — the only route that escapes mustChangePassword=true.
+      // Returns the same { accessToken, user } shape as login, so the response
+      // (with a fresh, mustChangePassword:false claim) is the single source of
+      // truth for clearing the forced-change gate — not an optimistic local flag.
+      changePassword: build.mutation<
+         ApiResponse<AuthResponseData>,
+         ChangePasswordRequest
       >({
-         query: (body) => ({ url: "/auth/register", method: "POST", body }),
+         query: (body) => ({
+            url: "/auth/change-password",
+            method: "POST",
+            body,
+         }),
+         onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
+            try {
+               const { data } = await queryFulfilled;
+               dispatch(
+                  setCredentials({
+                     user: data.data.user,
+                     accessToken: data.data.accessToken,
+                  }),
+               );
+            } catch {
+               /* change-password failed — nothing to sync */
+            }
+         },
       }),
 
       // logout API
@@ -45,12 +66,14 @@ export const authApi = createApi({
          query: () => ({ url: "/auth/logout", method: "POST" }),
          onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
             // Clear auth state and ALL cached API data so the next user
-            // never sees a previous user's notes/profile from the RTK Query cache.
+            // never sees a previous user's data from any RTK Query cache.
             dispatch(logoutAction());
-            dispatch(profileApi.util.resetApiState());
+            resetAllCaches(dispatch);
             try {
                await queryFulfilled;
-            } catch (error) {}
+            } catch {
+               /* best-effort */
+            }
          },
       }),
 
@@ -58,10 +81,8 @@ export const authApi = createApi({
       logoutAll: build.mutation<ApiResponse<null>, void>({
          query: () => ({ url: "/auth/logout-all", method: "POST" }),
          onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
-            // Clear auth state and ALL cached API data so the next user
-            // never sees a previous user's notes/profile from the RTK Query cache.
             dispatch(logoutAction());
-            dispatch(profileApi.util.resetApiState());
+            resetAllCaches(dispatch);
             try {
                await queryFulfilled;
             } catch {
@@ -92,7 +113,7 @@ export const authApi = createApi({
 
 export const {
    useLoginMutation,
-   useRegisterMutation,
+   useChangePasswordMutation,
    useLogoutMutation,
    useLogoutAllMutation,
    useForgotPasswordMutation,

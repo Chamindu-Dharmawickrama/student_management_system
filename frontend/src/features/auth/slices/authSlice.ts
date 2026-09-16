@@ -3,6 +3,8 @@ import {
    createSlice,
    type PayloadAction,
 } from "@reduxjs/toolkit";
+import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
+import type { BaseQueryApi } from "@reduxjs/toolkit/query";
 import type { AuthState, AuthUser } from "../types/auth.types";
 import { tokenService } from "@/services/tokenService";
 import type { RootState } from "@/app/store";
@@ -10,6 +12,24 @@ import { decodeJwtPayload } from "@/shared/utils/jwtUtils";
 import { rawBaseQuery } from "@/services/baseQuery";
 
 let _sessionRestoreInFlight = false;
+
+// rawBaseQuery expects a full BaseQueryApi even when called manually outside
+// an actual RTK Query endpoint — this thunk isn't one, so build a minimal but
+// correctly-typed stand-in instead of casting through `any`.
+function toBaseQueryApi(
+   dispatch: ThunkDispatch<unknown, unknown, UnknownAction>,
+   getState: () => unknown,
+): BaseQueryApi {
+   return {
+      dispatch,
+      getState,
+      extra: undefined,
+      endpoint: "restoreSession",
+      type: "query",
+      signal: new AbortController().signal,
+      abort: () => {},
+   };
+}
 
 // get new access token using refresh token and restore the session
 // this is used to restore the session when the user refreshes the page or opens the app for the first time
@@ -24,9 +44,10 @@ export const restoreSession = createAsyncThunk(
       _sessionRestoreInFlight = true;
 
       try {
+         const api = toBaseQueryApi(dispatch, getState);
          const result = await rawBaseQuery(
             { url: "/auth/refresh", method: "POST" },
-            { dispatch, getState } as any,
+            api,
             {}
          );
 
@@ -36,7 +57,7 @@ export const restoreSession = createAsyncThunk(
             // Logout from backend to ensure HTTP-only cookies (like refresh token) are cleared
             await rawBaseQuery(
                { url: "/auth/logout", method: "POST" },
-               { dispatch, getState } as any,
+               api,
                {}
             );
             return rejectWithValue("No valid session");
@@ -82,7 +103,11 @@ const authSlice = createSlice({
       },
    },
    extraReducers: (builder) => {
-      // Session restore succeeded — populate user from decoded JWT
+      // Session restore succeeded — populate user from decoded JWT. The
+      // refresh endpoint only returns an accessToken (no user object), so
+      // email/photoUrl/authProvider/createdAt/updatedAt are left undefined
+      // here; Topbar's GET /profile fetch fills them in moments later via
+      // the `updateUser` reducer below.
       builder.addCase(restoreSession.fulfilled, (state, action) => {
          const accessToken = action.payload;
          tokenService.setToken(accessToken);
@@ -92,8 +117,7 @@ const authSlice = createSlice({
                id: decoded.sub,
                username: decoded.username,
                role: decoded.role,
-               // Read authProvider from the token if present, default to 'local'
-               authProvider: decoded.authProvider ?? "local",
+               mustChangePassword: decoded.mustChangePassword,
             };
          }
          // Always mark initialized — even if decode somehow fails — so ProtectedRoute
@@ -115,8 +139,14 @@ export const { setCredentials, logout, updateUser } = authSlice.actions;
 export const selectUser = (state: RootState) => state.auth.user;
 export const selectIsInitialized = (state: RootState) =>
    state.auth.isInitialized;
-export const selectIsAdmin = (state: RootState) =>
-   state.auth.user?.role === "ADMIN";
 export const selectIsAuthenticated = (state: RootState) => !!state.auth.user;
+export const selectIsAdmin = (state: RootState) =>
+   state.auth.user?.role === "SCHOOL_ADMIN";
+export const selectIsTeacher = (state: RootState) =>
+   state.auth.user?.role === "TEACHER";
+export const selectIsStudent = (state: RootState) =>
+   state.auth.user?.role === "STUDENT";
+export const selectMustChangePassword = (state: RootState) =>
+   state.auth.user?.mustChangePassword ?? false;
 
 export default authSlice.reducer;

@@ -1,9 +1,16 @@
-// Global API response shape 
+// Global API response shape
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
   requestId?: string;
+  // Present only on paginated list endpoints
+  meta?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 // Normalized API error 

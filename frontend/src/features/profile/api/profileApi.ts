@@ -1,18 +1,17 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { baseQueryWithReauth, registerCacheReset } from "@/services/baseQuery";
-import { updateUser, logout } from "@/features/auth/slices/authSlice";
+import { updateUser } from "@/features/auth/slices/authSlice";
 import type { ApiResponse } from "@/types/api.types";
-import type {
-   ProfileResponse,
-   UpdateProfileRequest,
-} from "../types/profile.types";
+import type { ProfileResponse } from "../types/profile.types";
 
+// Self-service is password-change only (locked product decision) — this slice
+// exposes GET /profile ONLY, for the one screen (AccountPage) that reads it.
+// PATCH/DELETE /profile exist on the backend but are never wired to any UI.
 export const profileApi = createApi({
    reducerPath: "profileApi",
    baseQuery: baseQueryWithReauth,
    tagTypes: ["Profile"],
    endpoints: (build) => ({
-      //Get profile
       getProfile: build.query<ProfileResponse, void>({
          query: () => "/profile",
          transformResponse: (response: ApiResponse<ProfileResponse>) =>
@@ -21,44 +20,18 @@ export const profileApi = createApi({
          onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
             try {
                const { data } = await queryFulfilled;
-               // Sync profile changes (email, avatar) into the auth slice
+               // Sync the fields /auth/refresh can't provide into the auth
+               // slice so the rest of the app (Topbar, guards) sees a fully
+               // populated AuthUser shortly after a page reload.
                dispatch(
-                  updateUser({ email: data.email, avatarUrl: data.avatarUrl }),
+                  updateUser({
+                     email: data.email,
+                     photoUrl: data.photoUrl,
+                     authProvider: data.authProvider,
+                     createdAt: data.createdAt,
+                     updatedAt: data.updatedAt,
+                  }),
                );
-            } catch {
-               // ignore
-            }
-         },
-      }),
-
-      //Update profile
-      updateProfile: build.mutation<ProfileResponse, UpdateProfileRequest>({
-         query: (body) => ({ url: "/profile", method: "PATCH", body }),
-         transformResponse: (response: ApiResponse<ProfileResponse>) =>
-            response.data,
-         invalidatesTags: ["Profile"],
-         onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
-            try {
-               const { data } = await queryFulfilled;
-               dispatch(
-                  updateUser({ email: data.email, avatarUrl: data.avatarUrl }),
-               );
-            } catch {
-               // ignore
-            }
-         },
-      }),
-
-      //Delete account
-      deleteAccount: build.mutation<void, void>({
-         query: () => ({ url: "/profile", method: "DELETE" }),
-         onQueryStarted: async (_, { dispatch, queryFulfilled }) => {
-            try {
-               await queryFulfilled;
-               // Successfully deleted — clear ALL cached data before forcing logout
-               // so the next user never sees this user's stale data.
-               dispatch(profileApi.util.resetApiState());
-               dispatch(logout());
             } catch {
                // ignore
             }
@@ -67,11 +40,7 @@ export const profileApi = createApi({
    }),
 });
 
-export const {
-   useGetProfileQuery,
-   useUpdateProfileMutation,
-   useDeleteAccountMutation,
-} = profileApi;
+export const { useGetProfileQuery } = profileApi;
 
 // Register this API's cache-reset callback with baseQuery so the 401-forced-logout
 // path can wipe stale data without creating a circular import.

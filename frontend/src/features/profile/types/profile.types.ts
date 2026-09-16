@@ -3,12 +3,9 @@ export interface ProfileResponse {
   username: string;
   email: string;
   role: string;
-  avatarUrl: string | null;
+  photoUrl: string | null;
   authProvider: string;
+  isActive: boolean;
   createdAt: string;
-}
-
-export interface UpdateProfileRequest {
-  email?: string;
-  avatarUrl?: string;
+  updatedAt: string;
 }

@@ -5,8 +5,8 @@ import {
    type FetchBaseQueryError,
 } from "@reduxjs/toolkit/query";
 import { tokenService } from "./tokenService";
-import type { AppDispatch } from "@/app/store";
-import { logout } from "@/features/auth/slices/authSlice";
+import type { AppDispatch, RootState } from "@/app/store";
+import { logout, updateUser } from "@/features/auth/slices/authSlice";
 
 // Use RTK queries to send HTTP requests to the backend
 
@@ -29,9 +29,16 @@ export function registerCacheReset(fn: CacheResetFn): void {
    _cacheResetFns.push(fn);
 }
 
-function resetAllCaches(dispatch: AppDispatch): void {
+/** Call every registered cache-wipe callback. Exported so authApi's explicit
+ * logout/logout-all mutations wipe every feature's cache too, not just the
+ * ones baseQuery happens to know about. */
+export function resetAllCaches(dispatch: AppDispatch): void {
    _cacheResetFns.forEach((fn) => fn(dispatch));
 }
+
+// Exact message the backend's requirePasswordAlreadyChanged middleware throws.
+const MUST_CHANGE_PASSWORD_MESSAGE =
+   "You must change your temporary password before continuing.";
 
 // ---------------------------------------------------------------------------
 
@@ -108,6 +115,22 @@ export const baseQueryWithReauth: BaseQueryFn<
             api,
             extraOptions,
          );
+      }
+   }
+
+   // Defense in depth: every protected backend route 403s with this exact
+   // message when mustChangePassword is still true server-side. ProtectedRoute
+   // already redirects reactively once this flag flips in Redux state — this
+   // branch just makes sure that happens even if a stale client somehow
+   // reached a route without the guard catching it first.
+   if (
+      result.error?.status === 403 &&
+      (result.error.data as { message?: string } | undefined)?.message ===
+         MUST_CHANGE_PASSWORD_MESSAGE
+   ) {
+      const state = api.getState() as RootState;
+      if (state.auth.user) {
+         (api.dispatch as AppDispatch)(updateUser({ mustChangePassword: true }));
       }
    }
 
