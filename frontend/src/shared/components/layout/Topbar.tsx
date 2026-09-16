@@ -82,16 +82,16 @@ export function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
                trigger={
                   <button
                      type="button"
-                     className="flex items-center gap-2 rounded-md p-1.5 hover:bg-bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                     className="flex items-center gap-2.5 rounded-full p-1.5 pr-3 hover:bg-bg-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors border border-transparent hover:border-border"
                   >
                      <Avatar photoUrl={user.photoUrl} firstName={user.username} size="sm" />
-                     <span className="hidden flex-col items-start leading-tight sm:flex">
-                        <span className="text-sm font-medium text-text-primary">{user.username}</span>
-                        <Badge variant="neutral" size="sm">
+                     <span className="hidden flex-col items-start sm:flex">
+                        <span className="text-sm font-semibold text-text-primary leading-none mb-1">{user.username}</span>
+                        <Badge variant="neutral" className="text-[10px] px-1.5 py-0 min-h-[18px] h-[18px]">
                            {ROLE_LABELS[user.role]}
                         </Badge>
                      </span>
-                     <ChevronDown className="hidden h-4 w-4 text-text-muted sm:block" aria-hidden="true" />
+                     <ChevronDown className="hidden h-4 w-4 text-text-muted sm:block ml-1" aria-hidden="true" />
                   </button>
                }
                items={[

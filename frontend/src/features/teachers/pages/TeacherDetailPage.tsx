@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { 
   User, 
@@ -155,7 +156,7 @@ export default function TeacherDetailPage() {
                 <DescriptionList 
                   items={[
                     { label: "Employee No.", value: teacher.employeeNo },
-                    { label: "Join Date", value: formatDate(teacher.joinDate) },
+                    { label: "Join Date", value: formatDate((teacher as any).joinDate || (teacher as any).joinedAt) },
                   ]} 
                 />
               </Card>

@@ -54,6 +54,7 @@ export const ROUTES = {
   STUDENT_MARKS: '/student/marks',
   STUDENT_SUBJECTS: '/student/subjects',
   STUDENT_REPORT: '/student/report',
+  STUDENT_PROFILE: '/student/profile',
 } as const;
 
 // Where each role lands on `/` and after login. There is no shared dashboard.

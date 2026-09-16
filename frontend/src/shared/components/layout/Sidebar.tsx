@@ -117,7 +117,7 @@ export function Sidebar({ role, collapsed = false, onNavigate, showBrand = true 
          )}
 
          {sections.map((section, i) => (
-            <div key={section.label ?? i} className="flex flex-col gap-1">
+            <div key={section.label ?? i} className="flex flex-col gap-2">
                {section.label && !collapsed && (
                   <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
                      {section.label}

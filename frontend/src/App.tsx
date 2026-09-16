@@ -41,6 +41,12 @@ const ClassDetail = lazy(() => import("./features/classes/pages/ClassDetail"));
 
 const GradeBandsList = lazy(() => import("./features/gradeBands/pages/GradeBandsList"));
 
+const StudentDashboardPage = lazy(() => import("./features/studentPortal/pages/StudentDashboardPage"));
+const StudentMarksPage = lazy(() => import("./features/studentPortal/pages/StudentMarksPage"));
+const StudentSubjectsPage = lazy(() => import("./features/studentPortal/pages/StudentSubjectsPage"));
+const StudentReportPage = lazy(() => import("./features/studentPortal/pages/StudentReportPage"));
+const StudentProfilePage = lazy(() => import("./features/studentPortal/pages/StudentProfilePage"));
+
 function FullPageFallback() {
     return <Spinner fullPage message="Loading…" />;
 }
@@ -156,10 +162,11 @@ export default function App() {
                                 </ProtectedRoute>
                             }
                         >
-                            <Route index element={<PlaceholderPage title="Student Dashboard" />} />
-                            <Route path="marks" element={<PlaceholderPage title="My Marks" />} />
-                            <Route path="subjects" element={<PlaceholderPage title="My Subjects" />} />
-                            <Route path="report" element={<PlaceholderPage title="Report Card" />} />
+                            <Route index element={<StudentDashboardPage />} />
+                            <Route path="marks" element={<StudentMarksPage />} />
+                            <Route path="subjects" element={<StudentSubjectsPage />} />
+                            <Route path="report" element={<StudentReportPage />} />
+                            <Route path="profile" element={<StudentProfilePage />} />
                         </Route>
                     </Route>
 
