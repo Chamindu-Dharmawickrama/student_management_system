@@ -59,7 +59,7 @@ export default function LoginPage() {
                (err as SerializedApiError).data?.message ?? "You don't have access to sign in.",
             );
          } else {
-            toast.error("Something went wrong. Please try again.");
+            toast.error("An unexpected error occurred during sign in. Please try again.");
          }
       }
    }

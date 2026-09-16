@@ -32,9 +32,9 @@ export default function StudentDashboardPage() {
             <div className="flex items-center gap-4 mb-8 bg-surface p-6 rounded-lg border border-border shadow-sm">
                <Avatar photoUrl={user?.photoUrl} firstName={me.firstName} size="xl" />
                <div>
-                  <h1 className="text-2xl font-bold text-text-primary">
+                  <h2 className="text-2xl font-bold text-text-primary">
                      Welcome, {me.firstName} {me.lastName}
-                  </h1>
+                  </h2>
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-sm text-text-muted">
                      <span>Admission No: {me.admissionNumber}</span>
                      <span>•</span>

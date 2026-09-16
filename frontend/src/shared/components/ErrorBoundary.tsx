@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-primary)' }}>
           <h2>Oops, there was an error!</h2>
-          <p style={{ color: 'var(--color-text-secondary)' }}>Something went wrong. Please refresh the page.</p>
+          <p style={{ color: 'var(--color-text-secondary)' }}>The application encountered an unexpected error. Please refresh the page.</p>
           <button 
             onClick={() => window.location.reload()}
             style={{

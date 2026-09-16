@@ -20,7 +20,6 @@ const AccountPage = lazy(() => import("./features/auth/pages/AccountPage"));
 
 const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
-const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
 const StudentListPage = lazy(() => import("./features/students/pages/StudentListPage"));
 const StudentFormPage = lazy(() => import("./features/students/pages/StudentFormPage"));
@@ -46,6 +45,11 @@ const StudentMarksPage = lazy(() => import("./features/studentPortal/pages/Stude
 const StudentSubjectsPage = lazy(() => import("./features/studentPortal/pages/StudentSubjectsPage"));
 const StudentReportPage = lazy(() => import("./features/studentPortal/pages/StudentReportPage"));
 const StudentProfilePage = lazy(() => import("./features/studentPortal/pages/StudentProfilePage"));
+
+const AdminDashboardPage = lazy(() => import("./features/dashboard/pages/AdminDashboardPage"));
+const MarkSheetListPage = lazy(() => import("./features/markSheets/pages/MarkSheetListPage"));
+const MarkSheetDetailPage = lazy(() => import("./features/markSheets/pages/MarkSheetDetailPage"));
+const ReportsPage = lazy(() => import("./features/reports/pages/ReportsPage"));
 
 const TeacherDashboardPage = lazy(() => import("./features/teacherPortal/pages/TeacherDashboardPage"));
 const TeacherClassesPage = lazy(() => import("./features/teacherPortal/pages/TeacherClassesPage"));
@@ -85,14 +89,14 @@ export default function App() {
                     },
                     success: {
                         iconTheme: {
-                            primary: "hsl(180, 60%, 50%)",
-                            secondary: "#111",
+                            primary: "var(--color-success)",
+                            secondary: "var(--color-bg-card)",
                         },
                     },
                     error: {
                         iconTheme: {
                             primary: "var(--color-danger)",
-                            secondary: "#fff",
+                            secondary: "var(--color-bg-card)",
                         },
                     },
                 }}
@@ -119,7 +123,7 @@ export default function App() {
                                 </ProtectedRoute>
                             }
                         >
-                            <Route index element={<PlaceholderPage title="Admin Dashboard" />} />
+                            <Route index element={<AdminDashboardPage />} />
                             <Route path="students" element={<StudentListPage />} />
                             <Route path="students/new" element={<StudentFormPage />} />
                             <Route path="students/:id" element={<StudentDetailPage />} />
@@ -138,9 +142,9 @@ export default function App() {
                             />
                             <Route path="exams/:id" element={<ExamDetail />} />
                             <Route path="grade-bands" element={<GradeBandsList />} />
-                            <Route path="marksheets" element={<PlaceholderPage title="Mark Sheets" />} />
-                            <Route path="marksheets/:id" element={<PlaceholderPage title="Mark Sheet Detail" />} />
-                            <Route path="reports" element={<PlaceholderPage title="Reports" />} />
+                            <Route path="marksheets" element={<MarkSheetListPage />} />
+                            <Route path="marksheets/:id" element={<MarkSheetDetailPage />} />
+                            <Route path="reports" element={<ReportsPage />} />
                         </Route>
 
                         <Route

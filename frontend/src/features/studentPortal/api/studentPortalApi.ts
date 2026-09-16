@@ -5,8 +5,8 @@ import type {
     StudentMeDto,
     StudentDashboardDto,
     MarkDto,
-    ReportCardDto
 } from "../types/studentPortal.types";
+import type { StudentTermReportDto } from "@/features/reports/types/reports.types";
 
 interface GetStudentMarksParams {
     page?: number;
@@ -40,9 +40,9 @@ export const studentPortalApi = createApi({
             transformResponse: (response: ApiResponse<PaginatedResponse<MarkDto[]>>) => response.data,
             providesTags: ["StudentMarks"],
         }),
-        getStudentReport: builder.query<ReportCardDto, { studentId: string; termId: string }>({
-            query: ({ studentId, termId }) => `/reports/student/${studentId}/term/${termId}`,
-            transformResponse: (response: ApiResponse<ReportCardDto>) => response.data,
+        getStudentReport: builder.query<StudentTermReportDto, { studentId: string; termId: string }>({
+            query: ({ studentId, termId }) => `/reports/student/${studentId}/term/${termId}?format=json`,
+            transformResponse: (response: ApiResponse<StudentTermReportDto>) => response.data,
             providesTags: ["StudentReport"],
         }),
     }),

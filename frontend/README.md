@@ -1,75 +1,41 @@
-# React + TypeScript + Vite
+# Student Management System - Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The frontend for the Student Management System. Built with React, TypeScript, and Vite.
 
-Currently, two official plugins are available:
+## Tech Stack
+- **Framework**: React 19, Vite
+- **Language**: TypeScript
+- **State Management**: Redux Toolkit & RTK Query
+- **Routing**: React Router v7
+- **Styling**: Tailwind CSS v4 (CSS-first architecture)
+- **Forms**: React Hook Form with Zod
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Setup Instructions
 
-## React Compiler
+1. Ensure Node.js (v18+) is installed.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Ensure `.env` is configured (if applicable, e.g. `VITE_API_URL=http://localhost:8000/api/v1`).
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+5. The application will be available at `http://localhost:5173`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Available Scripts
 
-## Expanding the ESLint configuration
+- `npm run dev`: Starts the development server.
+- `npm run build`: Builds the app for production.
+- `npm run lint`: Runs ESLint to check for code issues.
+- `npm run preview`: Previews the production build locally.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Design System & Components
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+The application follows a strict Design System.
+See the `CONTRIBUTING.md` file for architecture rules and styling guidelines.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Architecture Documentation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+Refer to `docs/frontend-prompts/00-MASTER-CONTEXT.md` in the project root for comprehensive architectural ground truths.

@@ -11,11 +11,12 @@ export interface ErrorStateProps {
 }
 
 export function ErrorState({ error, message, onRetry, className }: ErrorStateProps) {
-  const displayMessage = message || getErrorMessage(error) || 'Something went wrong.';
+  const displayMessage = message || getErrorMessage(error) || 'An unexpected error occurred while loading this content.';
 
   return (
     <div
       role="alert"
+      aria-live="assertive"
       className={cn(
         'flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-danger/30 bg-danger-subtle px-6 py-12 text-center',
         className,

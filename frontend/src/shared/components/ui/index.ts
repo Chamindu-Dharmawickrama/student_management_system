@@ -35,3 +35,4 @@ export * from './Switch';
 export * from './Tabs';
 export * from './Textarea';
 export * from './Tooltip';
+export * from './ReportCard';
