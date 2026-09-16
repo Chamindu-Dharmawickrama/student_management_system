@@ -4,12 +4,13 @@ import {
   useId,
   useRef,
   useState,
+  useEffect,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/shared/utils/cn';
-import { useClickOutside } from '@/shared/hooks/useClickOutside';
 
 export interface DropdownMenuItem {
   label: string;
@@ -29,10 +30,34 @@ export interface DropdownMenuProps {
 export function DropdownMenu({ trigger, items, align = 'end' }: DropdownMenuProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [coords, setCoords] = useState<{ top: number; left?: number; right?: number }>({ top: 0, left: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const menuId = useId();
 
-  useClickOutside(containerRef, () => setOpen(false));
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || menuRef.current?.contains(target)) {
+        return;
+      }
+      close();
+    };
+    const handleScrollOrResize = () => close();
+
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
+    window.addEventListener('scroll', handleScrollOrResize, true); // true for capture phase to catch internal scrolls
+    window.addEventListener('resize', handleScrollOrResize);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [open]);
 
   const enabledIndexes = items
     .map((item, index) => (item.disabled ? -1 : index))
@@ -48,11 +73,34 @@ export function DropdownMenu({ trigger, items, align = 'end' }: DropdownMenuProp
     close();
   }
 
+  function openMenu() {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (align === 'end') {
+        setCoords({
+          top: rect.bottom + window.scrollY,
+          right: window.innerWidth - rect.right - window.scrollX,
+        });
+      } else {
+        setCoords({
+          top: rect.bottom + window.scrollY,
+          left: rect.left + window.scrollX,
+        });
+      }
+      setOpen(true);
+    }
+  }
+
+  function toggle() {
+    if (open) close();
+    else openMenu();
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!open) {
       if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        setOpen(true);
+        openMenu();
         setActiveIndex(enabledIndexes[0] ?? 0);
       }
       return;
@@ -78,7 +126,7 @@ export function DropdownMenu({ trigger, items, align = 'end' }: DropdownMenuProp
 
   const triggerElement = isValidElement(trigger)
     ? cloneElement(trigger, {
-        onClick: () => setOpen((o) => !o),
+        onClick: toggle,
         'aria-haspopup': true,
         'aria-expanded': open,
       })
@@ -87,14 +135,13 @@ export function DropdownMenu({ trigger, items, align = 'end' }: DropdownMenuProp
   return (
     <div className="relative inline-block" ref={containerRef} onKeyDown={handleKeyDown}>
       {triggerElement}
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <ul
           id={menuId}
+          ref={menuRef}
           role="menu"
-          className={cn(
-            'absolute z-20 mt-1 min-w-40 rounded-md border border-border bg-bg-card py-1 shadow-lg',
-            align === 'end' ? 'right-0' : 'left-0',
-          )}
+          style={{ top: coords.top, left: coords.left, right: coords.right }}
+          className="absolute z-50 mt-1 min-w-40 rounded-md border border-border bg-bg-card py-1 shadow-lg"
         >
           {items.map((item, index) => (
             <li key={item.label} role="none">
@@ -103,7 +150,10 @@ export function DropdownMenu({ trigger, items, align = 'end' }: DropdownMenuProp
                 role="menuitem"
                 disabled={item.disabled}
                 onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => select(item)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  select(item);
+                }}
                 className={cn(
                   'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors duration-(--transition-fast)',
                   item.disabled && 'cursor-not-allowed text-text-muted',
@@ -117,7 +167,8 @@ export function DropdownMenu({ trigger, items, align = 'end' }: DropdownMenuProp
               </button>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

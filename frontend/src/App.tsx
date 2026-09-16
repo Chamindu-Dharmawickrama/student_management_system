@@ -22,6 +22,14 @@ const ForbiddenPage = lazy(() => import("./pages/ForbiddenPage"));
 const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const PlaceholderPage = lazy(() => import("./pages/PlaceholderPage"));
 
+const StudentListPage = lazy(() => import("./features/students/pages/StudentListPage"));
+const StudentFormPage = lazy(() => import("./features/students/pages/StudentFormPage"));
+const StudentDetailPage = lazy(() => import("./features/students/pages/StudentDetailPage"));
+
+const TeacherListPage = lazy(() => import("./features/teachers/pages/TeacherListPage"));
+const TeacherFormPage = lazy(() => import("./features/teachers/pages/TeacherFormPage"));
+const TeacherDetailPage = lazy(() => import("./features/teachers/pages/TeacherDetailPage"));
+
 const AcademicYearsList = lazy(() => import("./features/academicYear/pages/AcademicYearsList"));
 const AcademicYearDetail = lazy(() => import("./features/academicYear/pages/AcademicYearDetail"));
 const ExamDetail = lazy(() => import("./features/academicYear/pages/ExamDetail"));
@@ -98,14 +106,14 @@ export default function App() {
                             }
                         >
                             <Route index element={<PlaceholderPage title="Admin Dashboard" />} />
-                            <Route path="students" element={<PlaceholderPage title="Students" />} />
-                            <Route path="students/new" element={<PlaceholderPage title="New Student" />} />
-                            <Route path="students/:id" element={<PlaceholderPage title="Student Detail" />} />
-                            <Route path="students/:id/edit" element={<PlaceholderPage title="Edit Student" />} />
-                            <Route path="teachers" element={<PlaceholderPage title="Teachers" />} />
-                            <Route path="teachers/new" element={<PlaceholderPage title="New Teacher" />} />
-                            <Route path="teachers/:id" element={<PlaceholderPage title="Teacher Detail" />} />
-                            <Route path="teachers/:id/edit" element={<PlaceholderPage title="Edit Teacher" />} />
+                            <Route path="students" element={<StudentListPage />} />
+                            <Route path="students/new" element={<StudentFormPage />} />
+                            <Route path="students/:id" element={<StudentDetailPage />} />
+                            <Route path="students/:id/edit" element={<StudentFormPage />} />
+                            <Route path="teachers" element={<TeacherListPage />} />
+                            <Route path="teachers/new" element={<TeacherFormPage />} />
+                            <Route path="teachers/:id" element={<TeacherDetailPage />} />
+                            <Route path="teachers/:id/edit" element={<TeacherFormPage />} />
                             <Route path="classes" element={<ClassesList />} />
                             <Route path="classes/:id" element={<ClassDetail />} />
                             <Route path="subjects" element={<SubjectsList />} />

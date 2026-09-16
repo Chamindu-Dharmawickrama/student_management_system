@@ -159,7 +159,7 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-border">
+    <div className="w-full overflow-x-auto rounded-lg border border-border min-h-[16rem]">
       <table className="w-full min-w-max border-collapse text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className={cn(stickyHeader && 'sticky top-0 z-10')}>

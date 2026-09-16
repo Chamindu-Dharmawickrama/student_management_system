@@ -7,6 +7,8 @@ import { academicYearApi } from "@/features/academicYear/api/academicYearApi";
 import { subjectsApi } from "@/features/subjects/api/subjectsApi";
 import { classesApi } from "@/features/classes/api/classesApi";
 import { gradeBandsApi } from "@/features/gradeBands/api/gradeBandsApi";
+import { studentApi } from "@/features/students/api/studentApi";
+import { teacherApi } from "@/features/teachers/api/teacherApi";
 
 export const store = configureStore({
    reducer: {
@@ -18,6 +20,8 @@ export const store = configureStore({
       [subjectsApi.reducerPath]: subjectsApi.reducer,
       [classesApi.reducerPath]: classesApi.reducer,
       [gradeBandsApi.reducerPath]: gradeBandsApi.reducer,
+      [studentApi.reducerPath]: studentApi.reducer,
+      [teacherApi.reducerPath]: teacherApi.reducer,
    },
    middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware().concat(
@@ -27,6 +31,8 @@ export const store = configureStore({
          subjectsApi.middleware,
          classesApi.middleware,
          gradeBandsApi.middleware,
+         studentApi.middleware,
+         teacherApi.middleware,
       ),
 });
 export type RootState = ReturnType<typeof store.getState>;
