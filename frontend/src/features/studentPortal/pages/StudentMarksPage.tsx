@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGetStudentDashboardQuery, useGetStudentMarksQuery } from "../api/studentPortalApi";
 import { PageContainer } from "@/shared/components/layout";
-import { Badge, Card, CardContent, ErrorState, SkeletonCard } from "@/shared/components/ui";
+import { Alert, Badge, Card, CardContent, ErrorState, SkeletonCard } from "@/shared/components/ui";
 import { formatMark } from "@/shared/utils/formatUtils";
 import { formatDate } from "@/shared/utils/dateUtils";
 import { Info } from "lucide-react";
@@ -47,11 +47,16 @@ export default function StudentMarksPage() {
    const error = dashError;
 
    const selectedTerm = terms.find((t: any) => t.id === selectedTermId);
-   const marks = useMemo(() => marksData?.data ?? [], [marksData]);
+   const marks = useMemo(() => marksData?.items ?? [], [marksData]);
 
+   // Gate on the marks actually returned, not on the dashboard's
+   // "marksReleased" flag — that flag means EVERY selected subject has
+   // been approved, and hiding a student's already-approved marks just
+   // because a sibling subject isn't graded yet would contradict the
+   // per-subject/per-term visibility the marks endpoint is built to give.
    const summary = useMemo(() => {
-      if (!selectedTerm?.marksReleased) return null;
-      
+      if (marks.length === 0) return null;
+
       const nonAbsentMarks = marks.filter((m: any) => !m.isAbsent && m.marksObtained !== null);
       const totalMarksObtained = nonAbsentMarks.reduce((sum: number, m: any) => sum + (m.marksObtained ?? 0), 0);
       const totalMaxMarks = nonAbsentMarks.reduce((sum: number, m: any) => sum + m.maxMarks, 0);
@@ -108,7 +113,11 @@ export default function StudentMarksPage() {
                      <div>
                         {selectedTerm && (
                            <div>
-                              {!selectedTerm.marksReleased ? (
+                              {marksLoading ? (
+                                 <SkeletonCard />
+                              ) : marksError ? (
+                                 <ErrorState error={marksError} onRetry={marksRefetch} />
+                              ) : marks.length === 0 ? (
                                  <Card className="bg-surface">
                                     <CardContent className="flex flex-col items-center justify-center py-16 text-center">
                                        <div className="w-16 h-16 bg-primary-subtle rounded-full flex items-center justify-center text-primary mb-4">
@@ -129,10 +138,15 @@ export default function StudentMarksPage() {
                                  </Card>
                               ) : (
                                  <div className="space-y-6">
-                                    {marksLoading && <SkeletonCard />}
-                                    {marksError && <ErrorState error={marksError} onRetry={marksRefetch} />}
-                                    
-                                    {!marksLoading && !marksError && summary && (
+                                    {/* Not every selected subject may be graded yet — say so rather
+                                        than implying this is the final, complete result set. */}
+                                    {selectedTerm.subjectsTotal > selectedTerm.subjectsGraded && (
+                                       <Alert variant="info" title="Partial results">
+                                          {selectedTerm.subjectsGraded} of {selectedTerm.subjectsTotal} subjects have been released for {selectedTerm.name} so far. The rest will appear here as soon as they're approved.
+                                       </Alert>
+                                    )}
+
+                                    {summary && (
                                        <>
                                           <Card>
                                              <CardContent className="p-6">

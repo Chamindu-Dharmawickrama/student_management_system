@@ -14,14 +14,19 @@ import {
 
 const gradeBandRouter = Router();
 
-// Master grading configuration — admin-only (§2/§49).
+// Master grading configuration — mutations are admin-only (§2/§49). Reads
+// are open to any authenticated role: the band table (grade/min/max/point/
+// isPassing/description — nothing sensitive) is what teachers need to show
+// a live grade preview while entering marks, and what students need to
+// make sense of a grade letter on their own report card.
 const adminOnly = [authenticateUser, requirePasswordAlreadyChanged, requireRole("SCHOOL_ADMIN")];
+const anyAuth = [authenticateUser, requirePasswordAlreadyChanged, requireRole("SCHOOL_ADMIN", "TEACHER", "STUDENT")];
 
 gradeBandRouter.post("/", ...adminOnly, validate(createGradeBandSchema), catchAsync(createGradeBandController));
 
-gradeBandRouter.get("/", ...adminOnly, validate(listGradeBandsQuerySchema), catchAsync(listGradeBandsController));
+gradeBandRouter.get("/", ...anyAuth, validate(listGradeBandsQuerySchema), catchAsync(listGradeBandsController));
 
-gradeBandRouter.get("/:id", ...adminOnly, validate(idParamSchema), catchAsync(getGradeBandController));
+gradeBandRouter.get("/:id", ...anyAuth, validate(idParamSchema), catchAsync(getGradeBandController));
 
 gradeBandRouter.patch(
     "/:id",

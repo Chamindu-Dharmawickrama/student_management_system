@@ -17,7 +17,8 @@ export default function TeacherMarksheetDetailPage() {
     if (error || !marksheet) return <ErrorState error={error} />;
 
     const isEditable = marksheet.status === "DRAFT" || marksheet.status === "REJECTED";
-    const canSubmit = isEditable && marksheet.stats.isComplete;
+    const isComplete = marksheet.stats.pending === 0;
+    const canSubmit = isEditable && isComplete;
 
     const handleSubmit = async () => {
         try {
@@ -78,21 +79,21 @@ export default function TeacherMarksheetDetailPage() {
                         <h3 className="text-sm font-medium text-text-primary mb-3">Completion Status</h3>
                         <div className="flex items-center justify-between mb-2">
                             <span className="text-sm text-text-muted">Marks Entered</span>
-                            <span className="text-sm font-medium text-text-primary">{marksheet.stats.enteredMarks} / {marksheet.stats.totalStudents}</span>
+                            <span className="text-sm font-medium text-text-primary">{marksheet.stats.entered} / {marksheet.stats.totalStudents}</span>
                         </div>
                         <div className="w-full bg-border rounded-full h-2 mb-4">
-                            <div 
-                                className="bg-primary h-2 rounded-full" 
-                                style={{ width: `${(marksheet.stats.enteredMarks / marksheet.stats.totalStudents) * 100}%` }}
+                            <div
+                                className="bg-primary h-2 rounded-full"
+                                style={{ width: `${marksheet.stats.totalStudents > 0 ? (marksheet.stats.entered / marksheet.stats.totalStudents) * 100 : 0}%` }}
                             />
                         </div>
 
-                        {!marksheet.stats.isComplete && isEditable && (
+                        {!isComplete && isEditable && (
                             <p className="text-sm text-warning mt-2">
                                 You must enter marks for all {marksheet.stats.totalStudents} students before submitting.
                             </p>
                         )}
-                        {marksheet.stats.isComplete && isEditable && (
+                        {isComplete && isEditable && (
                             <p className="text-sm text-success mt-2 flex items-center gap-1">
                                 <CheckCircle className="w-4 h-4" /> All marks entered. Ready for submission.
                             </p>

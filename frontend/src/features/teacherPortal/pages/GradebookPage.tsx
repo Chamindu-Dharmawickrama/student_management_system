@@ -15,9 +15,17 @@ export default function GradebookPage() {
     const { data: dashboard, isLoading: loadingDash } = useGetTeacherDashboardQuery();
     const { data: classesData, isLoading: loadingClasses } = useGetTeacherClassesQuery();
     const { data: gradeBandsData, isLoading: loadingBands } = useGetGradeBandsQuery({ page: 1, limit: 100 });
+    // The teacher's own subject, always. classTeacherClassId grants a wider
+    // READ scope server-side (all subjects for the class-teacher's class,
+    // for viewing) — but the gradebook is a WRITE tool, and writes are only
+    // ever authorized for the teacher's own subject. Without this filter,
+    // opening the gradebook for a class-teacher's own class pulls back one
+    // placeholder row per subject per student (not just the teacher's),
+    // with no way to tell them apart and every row equally editable.
+    const teacherSubjectId = classesData?.subject?.id;
     const { data: marksData, isLoading: loadingMarks, refetch } = useGetTeacherMarksQuery(
-        { classId, termId, limit: 100 },
-        { skip: !classId || !termId }
+        { classId, termId, subjectId: teacherSubjectId, limit: 100 },
+        { skip: !classId || !termId || !teacherSubjectId }
     );
     const [bulkUpdate, { isLoading: isSaving }] = useBulkUpdateMarksMutation();
 
@@ -117,13 +125,17 @@ export default function GradebookPage() {
                 </FilterBar>
             </Card>
 
-            {!classId || !termId ? (
+            {!teacherSubjectId ? (
+                <Card className="p-12 text-center text-text-muted flex-1 flex items-center justify-center">
+                    You have no active subject assignment for the current academic year, so there is nothing to grade yet.
+                </Card>
+            ) : !classId || !termId ? (
                 <Card className="p-12 text-center text-text-muted flex-1 flex items-center justify-center">
                     Select a term and class to view the gradebook.
                 </Card>
             ) : marksData?.items.length === 0 ? (
                 <Card className="p-12 text-center text-text-muted flex-1 flex items-center justify-center">
-                    No students found for this class.
+                    No students taking {classesData?.subject?.name} were found in this class.
                 </Card>
             ) : (
                 <div className="flex-1 flex flex-col min-h-0 bg-surface rounded-lg border border-border">
@@ -134,6 +146,8 @@ export default function GradebookPage() {
                                 {classesData?.teachingClasses.find(c => c.id === classId)?.name}
                                 <span className="mx-2 text-text-muted">•</span>
                                 {selectedTerm?.name}
+                                <span className="mx-2 text-text-muted">•</span>
+                                {classesData?.subject?.name}
                             </h2>
                         </div>
                         <div className="flex items-center gap-3">

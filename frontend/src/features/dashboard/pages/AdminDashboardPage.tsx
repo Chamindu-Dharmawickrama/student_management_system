@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { useAppSelector } from "@/app/hooks";
-import { selectCurrentYearId } from "@/features/academicYear/slices/academicYearSlice";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { useGetAdminDashboardQuery } from "../api/dashboardApi";
 import { PageContainer } from "@/shared/components/layout";
 import { Card, CardContent, StatusBadge, SkeletonCard, ErrorState } from "@/shared/components/ui";
@@ -9,7 +8,9 @@ import { Users, UserCheck, BookOpen, GraduationCap, AlertCircle, FileText, Chevr
 import { formatDate } from "@/shared/utils/dateUtils";
 
 export default function AdminDashboardPage() {
-    const currentYearId = useAppSelector(selectCurrentYearId);
+    // Reconciled source of truth (see MarkSheetListPage.tsx for why the raw
+    // selectCurrentYearId selector must never be read directly).
+    const { yearId: currentYearId } = useSelectedAcademicYear();
     
     // We send academicYearId conditionally
     const { data, isLoading, error, refetch } = useGetAdminDashboardQuery(

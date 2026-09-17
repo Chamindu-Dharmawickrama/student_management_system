@@ -25,10 +25,12 @@ export interface MarkSheetTeacher {
     lastName: string;
 }
 
+// Mirrors markSheet.repository.js#findMarkStatsForSheet exactly.
 export interface MarkSheetStats {
     totalStudents: number;
-    marksEntered: number;
+    entered: number;
     absent: number;
+    pending: number;
 }
 
 export interface MarkSheetDto {
@@ -39,7 +41,7 @@ export interface MarkSheetDto {
     teacher: MarkSheetTeacher;
     status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "LOCKED";
     submittedAt: string | null;
-    approvedBy: string | null;
+    approvedBy: MarkSheetTeacher | null;
     approvedAt: string | null;
     rejectionReason: string | null;
     stats: MarkSheetStats;

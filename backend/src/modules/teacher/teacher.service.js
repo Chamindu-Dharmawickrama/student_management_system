@@ -106,6 +106,8 @@ export const registerTeacherService = async (data) => {
                 academicYearId: academicYear.id,
             });
 
+            console.log(`--- UserName: ${created.username}, password: ${temporaryPassword} ---`); // For debugging only; remove in production.
+
             await sendInitialCredentials(created, temporaryPassword, "TEACHER", tx);
 
             return created;

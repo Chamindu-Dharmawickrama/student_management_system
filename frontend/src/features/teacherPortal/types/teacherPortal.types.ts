@@ -161,11 +161,14 @@ export interface MarkDTO {
     updatedAt: string;
 }
 
+// Mirrors markSheet.repository.js#findMarkStatsForSheet exactly — the
+// backend does not send an `isComplete`/`enteredMarks` field. "Complete"
+// means `pending === 0`; compute it at the call site.
 export interface MarkSheetStats {
     totalStudents: number;
-    enteredMarks: number;
+    entered: number;
     absent: number;
-    isComplete: boolean;
+    pending: number;
 }
 
 export interface MarkSheetDTO {

@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useGetClassExamReportQuery } from "@/features/reports/api/reportsApi";
 import { useGetAcademicYearByIdQuery } from "@/features/academicYear/api/academicYearApi";
-import { useAppSelector } from "@/app/hooks";
-import { selectCurrentYearId } from "@/features/academicYear/slices/academicYearSlice";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { Select, SkeletonCard, ErrorState, Card, CardContent } from "@/shared/components/ui";
 import { BarChart3, Users } from "lucide-react";
 
@@ -11,7 +10,9 @@ interface ClassResultsTabProps {
 }
 
 export function ClassResultsTab({ classId }: ClassResultsTabProps) {
-    const currentYearId = useAppSelector(selectCurrentYearId);
+    // Reconciled source of truth (see MarkSheetListPage.tsx for why the raw
+    // selectCurrentYearId selector must never be read directly).
+    const { yearId: currentYearId } = useSelectedAcademicYear();
     const { data: yearData, isLoading: yearLoading } = useGetAcademicYearByIdQuery(currentYearId || "", {
         skip: !currentYearId
     });

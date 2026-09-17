@@ -69,7 +69,7 @@ export default function TeacherMarksheetsPage() {
                             header: "Progress",
                             render: (row: any) => (
                                 <div className="text-sm">
-                                    {row.stats.enteredMarks} / {row.stats.totalStudents} entered
+                                    {row.stats.entered} / {row.stats.totalStudents} entered
                                 </div>
                             )
                         },

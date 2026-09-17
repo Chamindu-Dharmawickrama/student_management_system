@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useGetMarkSheetDetailQuery, useApproveMarkSheetMutation, useRejectMarkSheetMutation, useLockMarkSheetMutation } from "../api/markSheetsApi";
 import { useGetClassExamReportQuery } from "@/features/reports/api/reportsApi";
 import { PageContainer } from "@/shared/components/layout";
-import { Card, CardContent, Button, StatusBadge, SkeletonCard, ErrorState, Breadcrumbs } from "@/shared/components/ui";
+import { Card, CardContent, Button, StatusBadge, SkeletonCard, ErrorState, Breadcrumbs, Alert } from "@/shared/components/ui";
 import { CheckCircle, XCircle, Lock, Calendar, Users, AlertCircle, BarChart3 } from "lucide-react";
 import { formatDate } from "@/shared/utils/dateUtils";
 import { toast } from "react-hot-toast";
@@ -190,6 +190,17 @@ export default function MarkSheetDetailPage() {
                 </div>
             )}
 
+            {markSheet.status === "DRAFT" && (
+                <div className="mb-8">
+                    <Alert variant="info" title="Waiting on the teacher">
+                        This mark sheet is still a draft. There is nothing for an admin to
+                        do yet — {markSheet.teacher.firstName} {markSheet.teacher.lastName} must
+                        finish entering marks and submit it for review before it can be
+                        approved here.
+                    </Alert>
+                </div>
+            )}
+
             {markSheet.rejectionReason && (
                 <div className="mb-8 p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg flex items-start">
                     <AlertCircle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
@@ -222,7 +233,7 @@ export default function MarkSheetDetailPage() {
                                     <dd className="font-medium text-text-primary">
                                         {markSheet.approvedAt && markSheet.approvedBy ? (
                                             <>
-                                                {formatDate(markSheet.approvedAt)} by {markSheet.approvedBy}
+                                                {formatDate(markSheet.approvedAt)} by {markSheet.approvedBy.firstName} {markSheet.approvedBy.lastName}
                                             </>
                                         ) : <span className="text-text-muted italic">Not yet approved</span>}
                                     </dd>
@@ -303,7 +314,7 @@ export default function MarkSheetDetailPage() {
                         <div className="bg-surface p-4 border-b border-border flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-text-primary">Student Marks</h3>
                             <span className="text-sm text-text-muted">
-                                {markSheet.stats.marksEntered} / {markSheet.stats.totalStudents} Entered
+                                {markSheet.stats.entered} / {markSheet.stats.totalStudents} Entered
                             </span>
                         </div>
                         

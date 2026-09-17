@@ -32,12 +32,18 @@ export const studentPortalApi = createApi({
             transformResponse: (response: ApiResponse<StudentDashboardDto>) => response.data,
             providesTags: ["StudentDashboard"],
         }),
-        getStudentMarks: builder.query<PaginatedResponse<MarkDto[]>, GetStudentMarksParams>({
+        getStudentMarks: builder.query<
+            { items: MarkDto[]; meta: PaginatedResponse<MarkDto[]>["meta"] },
+            GetStudentMarksParams
+        >({
             query: (params) => ({
                 url: "/student/me/marks",
                 params,
             }),
-            transformResponse: (response: ApiResponse<PaginatedResponse<MarkDto[]>>) => response.data,
+            transformResponse: (response: PaginatedResponse<MarkDto[]>) => ({
+                items: response.data,
+                meta: response.meta,
+            }),
             providesTags: ["StudentMarks"],
         }),
         getStudentReport: builder.query<StudentTermReportDto, { studentId: string; termId: string }>({

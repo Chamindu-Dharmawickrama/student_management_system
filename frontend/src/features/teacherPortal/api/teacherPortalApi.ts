@@ -83,13 +83,18 @@ export const teacherPortalApi = createApi({
             { page?: number; limit?: number }
         >({
             query: (params) => ({
-                url: "/teacher/marksheets",
+                url: "/marksheets",
                 params,
+            }),
+            transformResponse: (response: PaginatedResponse<MarkSheetDTO[]>) => ({
+                items: response.data,
+                meta: response.meta,
             }),
             providesTags: ["TeacherMarksheets"],
         }),
         getTeacherMarksheetDetail: builder.query<MarkSheetDTO, string>({
-            query: (id) => `/teacher/marksheets/${id}`,
+            query: (id) => `/marksheets/${id}`,
+            transformResponse: (response: ApiResponse<MarkSheetDTO>) => response.data,
             providesTags: (_result, _error, id) => [{ type: "TeacherMarksheets", id }],
         }),
         submitMarksheet: builder.mutation<MarkSheetDTO, string>({
