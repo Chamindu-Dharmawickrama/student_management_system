@@ -66,15 +66,23 @@ export function GradeBandModal({ isOpen, onClose, gradeBand }: GradeBandModalPro
   const onSubmit = async (data: GradeBandInput) => {
     try {
       if (isEditing) {
-        await updateGradeBand({ 
-          id: gradeBand.id, 
-          body: data 
+        await updateGradeBand({
+          id: gradeBand.id,
+          body: data
         }).unwrap();
         toast.success("Grade band updated successfully");
       } else {
         await createGradeBand(data).unwrap();
         toast.success("Grade band created successfully");
       }
+      reset({
+        grade: "",
+        minMark: undefined,
+        maxMark: undefined,
+        gradePoint: undefined,
+        isPassing: true,
+        description: "",
+      });
       onClose();
     } catch {
       // Handled by form UI

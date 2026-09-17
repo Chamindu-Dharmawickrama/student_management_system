@@ -5,9 +5,10 @@ import {
    Calendar,
    ClipboardList,
    FileText,
-   GraduationCap,
    LayoutDashboard,
    Notebook,
+   PanelLeftClose,
+   PanelLeftOpen,
    School,
    UserCog,
    Users,
@@ -97,63 +98,105 @@ export interface SidebarProps {
    onNavigate?: () => void;
    /** Hide the brand row — used inside the mobile Drawer, which already shows its own title. */
    showBrand?: boolean;
+   /** Renders the collapse/expand toggle at the bottom of the sidebar. Omit for contexts
+    * (like the mobile Drawer) where collapsing doesn't apply. */
+   onToggleCollapse?: () => void;
 }
 
 /** Nav content shared by the persistent desktop aside and the mobile drawer. */
-export function Sidebar({ role, collapsed = false, onNavigate, showBrand = true }: SidebarProps) {
+export function Sidebar({
+   role,
+   collapsed = false,
+   onNavigate,
+   showBrand = true,
+   onToggleCollapse,
+}: SidebarProps) {
    const sections = getNavSections(role);
 
+   const toggleButton = onToggleCollapse && (
+      <button
+         type="button"
+         onClick={onToggleCollapse}
+         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+         className={cn(
+            "flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium text-text-secondary transition-colors duration-(--transition-fast) hover:bg-bg-subtle hover:text-text-primary",
+            collapsed && "justify-center px-0",
+         )}
+      >
+         {collapsed ? (
+            <PanelLeftOpen className="h-5 w-5 shrink-0" aria-hidden="true" />
+         ) : (
+            <PanelLeftClose className="h-5 w-5 shrink-0" aria-hidden="true" />
+         )}
+         {!collapsed && <span className="truncate">Collapse sidebar</span>}
+      </button>
+   );
+
    return (
-      <nav className="flex h-full flex-col gap-6 overflow-y-auto px-3 py-4" aria-label="Main navigation">
-         {showBrand && (
-            <div className={cn("flex items-center gap-2 px-2", collapsed && "justify-center")}>
-               <GraduationCap className="h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
-               {!collapsed && (
-                  <span className="truncate text-sm font-semibold text-text-primary">
-                     SMS
-                  </span>
+      <div className="flex h-full flex-col">
+         <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-4" aria-label="Main navigation">
+            {showBrand && (
+               <div className={cn("flex items-center gap-2 px-2", collapsed && "justify-center")}>
+                  <img src="/mainLogo.png" alt="" className="h-7 w-7 shrink-0 rounded-md object-contain" />
+                  {!collapsed && (
+                     <span className="truncate text-sm font-semibold text-text-primary">
+                        SMS
+                     </span>
+                  )}
+               </div>
+            )}
+
+            {sections.map((section, i) => (
+               <div key={section.label ?? i} className="flex flex-col gap-2">
+                  {section.label && !collapsed && (
+                     <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                        {section.label}
+                     </p>
+                  )}
+                  {section.items.map((item) => {
+                     const link = (
+                        <NavLink
+                           key={item.to}
+                           to={item.to}
+                           end={item.end}
+                           onClick={onNavigate}
+                           className={({ isActive }) =>
+                              cn(
+                                 "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors duration-(--transition-fast)",
+                                 collapsed && "justify-center px-0",
+                                 isActive
+                                    ? "bg-primary-subtle text-primary-700"
+                                    : "text-text-secondary hover:bg-bg-subtle hover:text-text-primary",
+                              )
+                           }
+                        >
+                           <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                           {!collapsed && <span className="truncate">{item.label}</span>}
+                        </NavLink>
+                     );
+                     return collapsed ? (
+                        <Tooltip key={item.to} content={item.label} side="right">
+                           {link}
+                        </Tooltip>
+                     ) : (
+                        link
+                     );
+                  })}
+               </div>
+            ))}
+         </nav>
+
+         {toggleButton && (
+            <div className="shrink-0 border-t border-border px-3 py-2">
+               {collapsed ? (
+                  <Tooltip content="Expand sidebar" side="right">
+                     {toggleButton}
+                  </Tooltip>
+               ) : (
+                  toggleButton
                )}
             </div>
          )}
-
-         {sections.map((section, i) => (
-            <div key={section.label ?? i} className="flex flex-col gap-2">
-               {section.label && !collapsed && (
-                  <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                     {section.label}
-                  </p>
-               )}
-               {section.items.map((item) => {
-                  const link = (
-                     <NavLink
-                        key={item.to}
-                        to={item.to}
-                        end={item.end}
-                        onClick={onNavigate}
-                        className={({ isActive }) =>
-                           cn(
-                              "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors duration-(--transition-fast)",
-                              collapsed && "justify-center px-0",
-                              isActive
-                                 ? "bg-primary-subtle text-primary-700"
-                                 : "text-text-secondary hover:bg-bg-subtle hover:text-text-primary",
-                           )
-                        }
-                     >
-                        <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-                        {!collapsed && <span className="truncate">{item.label}</span>}
-                     </NavLink>
-                  );
-                  return collapsed ? (
-                     <Tooltip key={item.to} content={item.label} side="right">
-                        {link}
-                     </Tooltip>
-                  ) : (
-                     link
-                  );
-               })}
-            </div>
-         ))}
-      </nav>
+      </div>
    );
 }

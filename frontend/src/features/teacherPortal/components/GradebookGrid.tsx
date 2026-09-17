@@ -220,8 +220,8 @@ export function GradebookGrid({ examId, marks, gradeBands, isEditable, onSave, i
     }).length;
 
     return (
-        <div className="flex flex-col h-full relative">
-            <div className="overflow-x-auto pb-24">
+        <div className="flex flex-col h-full">
+            <div className="flex-1 overflow-auto">
                 <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead>
                         <tr className="border-b border-border bg-surface text-sm font-medium text-text-muted">
@@ -297,8 +297,8 @@ export function GradebookGrid({ examId, marks, gradeBands, isEditable, onSave, i
                 </table>
             </div>
 
-            {/* Sticky footer for saving */}
-            <div className="fixed bottom-0 left-0 right-0 lg:left-64 p-4 bg-surface border-t border-border shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 flex items-center justify-between">
+            {/* Save bar, pinned to the bottom of the grid card (not the viewport) so it never covers table rows */}
+            <div className="shrink-0 p-4 bg-surface border-t border-border shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between">
                 <div className="flex items-center gap-4 text-sm text-text-muted font-medium">
                     <span>{enteredCount} of {marks.length} entered</span>
                     {dirtyCount > 0 && <span className="text-warning">{dirtyCount} unsaved change{dirtyCount > 1 ? 's' : ''}</span>}

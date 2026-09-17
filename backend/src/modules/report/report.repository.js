@@ -2,13 +2,15 @@ import { getPrisma } from "../../config/database.js";
 
 // Student identity + class + the term (with its one exam) — header info for
 // the student term report. `studentId` here is the public-facing User id
-// (matches GET /students/:id), resolved down to its StudentProfile via the
-// nested select, same pattern as student.repository.js#findStudentDetailById.
+// (matches GET /students/:id) for the student-self-view path, but also
+// accepts `username` (e.g. "adm_2026_002") so the admin reports search —
+// which only ever shows admins the username, never the internal cuid — can
+// look a student up by what's actually on screen.
 export const findStudentReportContext = async (studentId, termId) => {
     const db = getPrisma();
     const [user, term] = await Promise.all([
         db.user.findFirst({
-            where: { id: studentId, role: "STUDENT" },
+            where: { role: "STUDENT", OR: [{ id: studentId }, { username: studentId }] },
             select: {
                 id: true,
                 firstName: true,

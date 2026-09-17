@@ -1,6 +1,5 @@
 import { type ReactNode } from "react";
 import { Outlet } from "react-router-dom";
-import { GraduationCap } from "lucide-react";
 
 export interface AuthLayoutProps {
    children?: ReactNode;
@@ -18,7 +17,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       <div className="flex min-h-[100dvh] w-full bg-bg-app">
          <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-primary p-10 text-white lg:flex">
             <div className="flex items-center gap-2">
-               <GraduationCap className="h-7 w-7" aria-hidden="true" />
+               <img src="/mainLogo.png" alt="" className="h-8 w-8 rounded-md object-contain" />
                <span className="text-lg font-semibold">Student Management System</span>
             </div>
             <div className="max-w-md space-y-3">
@@ -39,7 +38,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
          <div className="flex w-full flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:w-1/2">
             <div className="w-full max-w-sm">
                <div className="mb-8 flex items-center justify-center gap-2 lg:hidden">
-                  <GraduationCap className="h-6 w-6 text-primary" aria-hidden="true" />
+                  <img src="/mainLogo.png" alt="" className="h-7 w-7 rounded-md object-contain" />
                   <span className="text-base font-semibold text-text-primary">
                      Student Management System
                   </span>

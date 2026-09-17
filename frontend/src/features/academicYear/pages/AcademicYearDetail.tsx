@@ -126,7 +126,7 @@ function TermEditor({
             {isEditing ? (
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => { reset(); setIsEditing(false); }}>Cancel</Button>
-                <Button size="sm" form={`form-${term.id}`} isLoading={isLoading}>Save</Button>
+                <Button type="submit" size="sm" form={`form-${term.id}`} isLoading={isLoading}>Save</Button>
               </div>
             ) : (
               <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>Edit Term</Button>

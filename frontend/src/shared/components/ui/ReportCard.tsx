@@ -12,6 +12,7 @@ export function ReportCard({ report }: ReportCardProps) {
         <div className="bg-white text-black p-8 sm:p-12 shadow-sm border border-border max-w-4xl mx-auto print:border-none print:shadow-none print:max-w-none print:p-0">
             {/* School Header */}
             <div className="text-center mb-8 pb-6 border-b-2 border-gray-300">
+                <img src="/mainLogo.png" alt="" className="h-16 w-16 mx-auto mb-3 object-contain" />
                 <h1 className="text-3xl font-bold uppercase tracking-wider mb-2">Student Management System</h1>
                 <h2 className="text-xl font-semibold text-gray-700">Official Report Card</h2>
             </div>

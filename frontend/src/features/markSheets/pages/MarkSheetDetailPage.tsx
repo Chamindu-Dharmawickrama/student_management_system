@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useGetMarkSheetDetailQuery, useApproveMarkSheetMutation, useRejectMarkSheetMutation, useLockMarkSheetMutation } from "../api/markSheetsApi";
 import { useGetClassExamReportQuery } from "@/features/reports/api/reportsApi";
 import { PageContainer } from "@/shared/components/layout";
-import { Card, CardContent, Button, StatusBadge, SkeletonCard, ErrorState, Breadcrumbs, Alert } from "@/shared/components/ui";
+import { Card, CardContent, Button, StatusBadge, SkeletonCard, ErrorState, Breadcrumbs, Alert, ConfirmDialog } from "@/shared/components/ui";
 import { CheckCircle, XCircle, Lock, Calendar, Users, AlertCircle, BarChart3 } from "lucide-react";
 import { formatDate } from "@/shared/utils/dateUtils";
 import { toast } from "react-hot-toast";
@@ -25,12 +25,14 @@ export default function MarkSheetDetailPage() {
 
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectReason, setRejectReason] = useState("");
+    const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+    const [showLockConfirm, setShowLockConfirm] = useState(false);
 
     const handleApprove = async () => {
-        if (!window.confirm("Approve this mark sheet? Once approved, marks are visible to students.")) return;
         try {
             await approve(id!).unwrap();
             toast.success("Mark sheet approved successfully.");
+            setShowApproveConfirm(false);
         } catch {
             toast.error("Failed to approve mark sheet.");
         }
@@ -53,10 +55,10 @@ export default function MarkSheetDetailPage() {
     };
 
     const handleLock = async () => {
-        if (!window.confirm("Lock this mark sheet? This is a terminal state and cannot be undone.")) return;
         try {
             await lock(id!).unwrap();
             toast.success("Mark sheet locked.");
+            setShowLockConfirm(false);
         } catch {
             toast.error("Failed to lock mark sheet.");
         }
@@ -145,14 +147,14 @@ export default function MarkSheetDetailPage() {
                                 <XCircle className="w-4 h-4 mr-2" />
                                 Reject
                             </Button>
-                            <Button variant="primary" onClick={handleApprove} disabled={isApproving || isRejecting}>
+                            <Button variant="primary" onClick={() => setShowApproveConfirm(true)} disabled={isApproving || isRejecting}>
                                 <CheckCircle className="w-4 h-4 mr-2" />
                                 Approve
                             </Button>
                         </>
                     )}
                     {markSheet.status === "APPROVED" && (
-                        <Button variant="secondary" onClick={handleLock} disabled={isLocking}>
+                        <Button variant="secondary" onClick={() => setShowLockConfirm(true)} disabled={isLocking}>
                             <Lock className="w-4 h-4 mr-2 text-danger" />
                             Lock Sheet
                         </Button>
@@ -189,6 +191,28 @@ export default function MarkSheetDetailPage() {
                     </Card>
                 </div>
             )}
+
+            <ConfirmDialog
+                isOpen={showApproveConfirm}
+                onClose={() => setShowApproveConfirm(false)}
+                onConfirm={handleApprove}
+                title="Approve Mark Sheet"
+                description="Approve this mark sheet? Once approved, marks are visible to students."
+                confirmLabel="Approve"
+                variant="primary"
+                isLoading={isApproving}
+            />
+
+            <ConfirmDialog
+                isOpen={showLockConfirm}
+                onClose={() => setShowLockConfirm(false)}
+                onConfirm={handleLock}
+                title="Lock Mark Sheet"
+                description="Lock this mark sheet? This is a terminal state and cannot be undone."
+                confirmLabel="Lock"
+                variant="danger"
+                isLoading={isLocking}
+            />
 
             {markSheet.status === "DRAFT" && (
                 <div className="mb-8">

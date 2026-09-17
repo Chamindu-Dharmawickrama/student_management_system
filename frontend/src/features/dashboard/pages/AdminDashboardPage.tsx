@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { useGetAdminDashboardQuery } from "../api/dashboardApi";
@@ -27,16 +26,6 @@ export default function AdminDashboardPage() {
     const pendingLoginsCount = data?.pendingCredentialChanges ?? 0;
 
     const hasAttentionItems = !isHistorical && (pendingMarkSheetsCount > 0 || unconfiguredExamsCount > 0 || rejectedMarkSheetsCount > 0 || pendingLoginsCount > 0);
-
-    const totalMarkSheets = useMemo(() => {
-        if (!data) return 0;
-        return Object.values(data.markSheets).reduce((a, b) => a + (typeof b === "number" ? b : 0), 0);
-    }, [data]);
-
-    const getPipelineWidth = (count: number) => {
-        if (totalMarkSheets === 0) return "0%";
-        return `${(count / totalMarkSheets) * 100}%`;
-    };
 
     if (isLoading) {
         return (
@@ -236,63 +225,6 @@ export default function AdminDashboardPage() {
                 {/* Left Column: Timeline and Pipeline */}
                 <div className="lg:col-span-2 space-y-8">
                     
-                    {/* Row 4 - Mark Sheet Pipeline */}
-                    <Card>
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-lg font-semibold text-text-primary">Mark Sheet Pipeline</h2>
-                                <Link to="/admin/marksheets" className="text-sm font-medium text-primary hover:underline">View All</Link>
-                            </div>
-                            
-                            {totalMarkSheets > 0 ? (
-                                <div className="space-y-4">
-                                    <div className="flex h-6 rounded-full overflow-hidden flex-nowrap bg-surface-alt">
-                                        {data.markSheets.DRAFT > 0 && (
-                                            <div style={{ width: getPipelineWidth(data.markSheets.DRAFT) }} className="bg-slate-300" title={`Draft: ${data.markSheets.DRAFT}`} />
-                                        )}
-                                        {data.markSheets.REJECTED > 0 && (
-                                            <div style={{ width: getPipelineWidth(data.markSheets.REJECTED) }} className="bg-red-400" title={`Rejected: ${data.markSheets.REJECTED}`} />
-                                        )}
-                                        {data.markSheets.SUBMITTED > 0 && (
-                                            <div style={{ width: getPipelineWidth(data.markSheets.SUBMITTED) }} className="bg-amber-400" title={`Submitted: ${data.markSheets.SUBMITTED}`} />
-                                        )}
-                                        {data.markSheets.APPROVED > 0 && (
-                                            <div style={{ width: getPipelineWidth(data.markSheets.APPROVED) }} className="bg-teal-400" title={`Approved: ${data.markSheets.APPROVED}`} />
-                                        )}
-                                        {data.markSheets.LOCKED > 0 && (
-                                            <div style={{ width: getPipelineWidth(data.markSheets.LOCKED) }} className="bg-emerald-600" title={`Locked: ${data.markSheets.LOCKED}`} />
-                                        )}
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                                        <Link to="/admin/marksheets?status=DRAFT" className="block focus-ring rounded hover:bg-slate-50 p-2 text-center border-t-2 border-slate-300">
-                                            <div className="text-xl font-bold text-slate-700 tabular-nums">{data.markSheets.DRAFT}</div>
-                                            <div className="text-xs font-medium text-slate-500 uppercase">Draft</div>
-                                        </Link>
-                                        <Link to="/admin/marksheets?status=SUBMITTED" className="block focus-ring rounded hover:bg-amber-50 p-2 text-center border-t-2 border-amber-400">
-                                            <div className="text-xl font-bold text-amber-700 tabular-nums">{data.markSheets.SUBMITTED}</div>
-                                            <div className="text-xs font-medium text-amber-600 uppercase">Submitted</div>
-                                        </Link>
-                                        <Link to="/admin/marksheets?status=APPROVED" className="block focus-ring rounded hover:bg-teal-50 p-2 text-center border-t-2 border-teal-400">
-                                            <div className="text-xl font-bold text-teal-700 tabular-nums">{data.markSheets.APPROVED}</div>
-                                            <div className="text-xs font-medium text-teal-600 uppercase">Approved</div>
-                                        </Link>
-                                        <Link to="/admin/marksheets?status=LOCKED" className="block focus-ring rounded hover:bg-emerald-50 p-2 text-center border-t-2 border-emerald-600">
-                                            <div className="text-xl font-bold text-emerald-800 tabular-nums">{data.markSheets.LOCKED}</div>
-                                            <div className="text-xs font-medium text-emerald-700 uppercase">Locked</div>
-                                        </Link>
-                                        <Link to="/admin/marksheets?status=REJECTED" className="block focus-ring rounded hover:bg-red-50 p-2 text-center border-t-2 border-red-400">
-                                            <div className="text-xl font-bold text-red-700 tabular-nums">{data.markSheets.REJECTED}</div>
-                                            <div className="text-xs font-medium text-red-600 uppercase">Rejected</div>
-                                        </Link>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-center py-8 text-text-muted">No mark sheets generated yet.</div>
-                            )}
-                        </CardContent>
-                    </Card>
-
                     {/* Row 3 - Academic Calendar */}
                     <Card>
                         <CardContent className="p-6">

@@ -74,11 +74,11 @@ export function AppLayout({ children }: AppLayoutProps) {
    if (!user) return null;
 
    return (
-      <div className="flex h-dvh w-full overflow-hidden bg-bg-app lg:gap-4">
+      <div className="flex h-dvh w-full overflow-hidden bg-bg-app">
          <aside
             className={`hidden shrink-0 border-r border-border bg-bg-card transition-[width] duration-(--transition-base) lg:flex ${collapsed ? "w-16" : "w-64"}`}
          >
-            <Sidebar role={user.role} collapsed={collapsed} />
+            <Sidebar role={user.role} collapsed={collapsed} onToggleCollapse={toggleCollapsed} />
          </aside>
 
          <Drawer isOpen={isMobileNavOpen} onClose={closeMobileNav} title="Menu" side="left" size="sm">
@@ -87,13 +87,6 @@ export function AppLayout({ children }: AppLayoutProps) {
 
          <div className="flex min-w-0 flex-1 flex-col">
             <Topbar onMenuClick={openMobileNav} />
-            <button
-               type="button"
-               onClick={toggleCollapsed}
-               className="hidden self-start px-4 pt-2 text-xs text-text-muted hover:text-text-primary lg:block"
-            >
-               {collapsed ? "Expand sidebar »" : "« Collapse sidebar"}
-            </button>
 
             {isAdmin && <ReadOnlyYearBanner />}
 

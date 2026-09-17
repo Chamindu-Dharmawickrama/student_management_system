@@ -5,6 +5,8 @@ import {
     useGetMarkSheetsQuery,
     useApproveMarkSheetMutation,
 } from "../api/markSheetsApi";
+import { useGetClassesQuery } from "@/features/classes/api/classesApi";
+import { useGetSubjectsQuery } from "@/features/subjects/api/subjectsApi";
 import { PageContainer } from "@/shared/components/layout";
 import {
     Card,
@@ -13,14 +15,12 @@ import {
     StatusBadge,
     SkeletonCard,
     ErrorState,
-    Input,
     Select,
     Pagination,
 } from "@/shared/components/ui";
 import {
     FileText,
     CheckCircle,
-    Search,
     FilterX,
     ChevronDown,
     ChevronRight,
@@ -45,12 +45,8 @@ export default function MarkSheetListPage() {
     const page = parseInt(searchParams.get("page") || "1", 10);
     const status = searchParams.get("status") || "SUBMITTED";
     const termId = searchParams.get("termId") || "";
-
-    // We'll keep classId and subjectId as local text input state for simplicity, applied on "Search"
-    const [classId, setClassId] = useState(searchParams.get("classId") || "");
-    const [subjectId, setSubjectId] = useState(
-        searchParams.get("subjectId") || "",
-    );
+    const classId = searchParams.get("classId") || "";
+    const subjectId = searchParams.get("subjectId") || "";
 
     const { data, isLoading, error, refetch } = useGetMarkSheetsQuery(
         {
@@ -64,6 +60,23 @@ export default function MarkSheetListPage() {
         },
         { skip: !currentYearId },
     );
+
+    const { data: classesData } = useGetClassesQuery(
+        { page: 1, limit: 100, academicYearId: currentYearId || undefined },
+        { skip: !currentYearId },
+    );
+    const classOptions = classesData?.data
+        ? classesData.data.map((c) => ({ value: c.id, label: c.name }))
+        : [];
+
+    const { data: subjectsData } = useGetSubjectsQuery({
+        page: 1,
+        limit: 100,
+        status: "active",
+    });
+    const subjectOptions = subjectsData?.data
+        ? subjectsData.data.map((s) => ({ value: s.id, label: s.name }))
+        : [];
 
     const [approveMarkSheet, { isLoading: isApproving }] =
         useApproveMarkSheetMutation();
@@ -82,22 +95,8 @@ export default function MarkSheetListPage() {
         setSelectedIds(new Set()); // Clear selection on filter change
     };
 
-    const handleApplyTextFilters = () => {
-        const next = new URLSearchParams(searchParams);
-        if (classId) next.set("classId", classId);
-        else next.delete("classId");
-
-        if (subjectId) next.set("subjectId", subjectId);
-        else next.delete("subjectId");
-
-        next.set("page", "1");
-        setSearchParams(next);
-    };
-
     const clearFilters = () => {
         setSearchParams(new URLSearchParams());
-        setClassId("");
-        setSubjectId("");
         setSelectedIds(new Set());
     };
 
@@ -231,48 +230,52 @@ export default function MarkSheetListPage() {
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-text-muted mb-1">
-                                Class ID
+                                Class
                             </label>
-                            <Input
-                                placeholder="Filter by Class ID"
+                            <Select
                                 value={classId}
-                                onChange={(e) => setClassId(e.target.value)}
-                                onKeyDown={(e) =>
-                                    e.key === "Enter" &&
-                                    handleApplyTextFilters()
+                                onChange={(e) =>
+                                    handleFilterChange(
+                                        "classId",
+                                        e.target.value,
+                                    )
                                 }
+                                className="w-full"
+                                options={[
+                                    { value: "", label: "All Classes" },
+                                    ...classOptions,
+                                ]}
                             />
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-text-muted mb-1">
-                                Subject ID
+                                Subject
                             </label>
-                            <Input
-                                placeholder="Filter by Subject ID"
+                            <Select
                                 value={subjectId}
-                                onChange={(e) => setSubjectId(e.target.value)}
-                                onKeyDown={(e) =>
-                                    e.key === "Enter" &&
-                                    handleApplyTextFilters()
+                                onChange={(e) =>
+                                    handleFilterChange(
+                                        "subjectId",
+                                        e.target.value,
+                                    )
                                 }
+                                className="w-full"
+                                options={[
+                                    { value: "", label: "All Subjects" },
+                                    ...subjectOptions,
+                                ]}
                             />
                         </div>
                         <div className="flex items-end gap-2">
                             <Button
                                 variant="secondary"
-                                onClick={handleApplyTextFilters}
-                                className="w-full"
-                            >
-                                <Search className="w-4 h-4 mr-2" />
-                                Search
-                            </Button>
-                            <Button
-                                variant="secondary"
                                 onClick={clearFilters}
                                 aria-label="Clear Filters"
                                 title="Clear Filters"
+                                className="w-full"
                             >
-                                <FilterX className="w-4 h-4" />
+                                <FilterX className="w-4 h-4 mr-2" />
+                                Clear Filters
                             </Button>
                         </div>
                     </div>

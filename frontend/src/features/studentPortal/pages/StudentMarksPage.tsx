@@ -58,8 +58,8 @@ export default function StudentMarksPage() {
       if (marks.length === 0) return null;
 
       const nonAbsentMarks = marks.filter((m: any) => !m.isAbsent && m.marksObtained !== null);
-      const totalMarksObtained = nonAbsentMarks.reduce((sum: number, m: any) => sum + (m.marksObtained ?? 0), 0);
-      const totalMaxMarks = nonAbsentMarks.reduce((sum: number, m: any) => sum + m.maxMarks, 0);
+      const totalMarksObtained = nonAbsentMarks.reduce((sum: number, m: any) => sum + Number(m.marksObtained ?? 0), 0);
+      const totalMaxMarks = nonAbsentMarks.reduce((sum: number, m: any) => sum + Number(m.maxMarks), 0);
       const subjectsGraded = nonAbsentMarks.length;
       const average = subjectsGraded > 0 ? totalMarksObtained / subjectsGraded : null;
       return {
