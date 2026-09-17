@@ -65,7 +65,7 @@ export function Modal({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="fixed inset-0 bg-slate-900/50"
+        className="fixed inset-0 bg-slate-900/50 animate-modal-backdrop"
         aria-hidden="true"
         onClick={closeOnBackdropClick ? onClose : undefined}
       />
@@ -77,7 +77,7 @@ export function Modal({
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         className={cn(
-          'relative z-10 flex max-h-[90vh] w-full flex-col rounded-lg bg-bg-card shadow-xl',
+          'relative z-10 flex max-h-[90vh] w-full flex-col rounded-lg bg-bg-card shadow-xl animate-modal-panel',
           SIZE_CLASSES[size],
         )}
       >

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
@@ -37,7 +37,25 @@ export function Drawer({
   const titleId = useId();
   const descId = useId();
 
+  // Keep the drawer mounted through its closing transition: it enters as soon as
+  // isOpen flips true, and only unmounts once the slide-out transition finishes.
+  const [isMounted, setIsMounted] = useState(isOpen);
+  const [isVisible, setIsVisible] = useState(false);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) setIsMounted(true);
+    else setIsVisible(false);
+  }
+
   useFocusTrap(panelRef, isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const raf = requestAnimationFrame(() => setIsVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -57,11 +75,18 @@ export function Drawer({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isMounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex">
-      <div className="fixed inset-0 bg-slate-900/50" aria-hidden="true" onClick={onClose} />
+      <div
+        className={cn(
+          'fixed inset-0 bg-slate-900/50 transition-opacity duration-(--transition-base) ease-(--ease-standard)',
+          isVisible ? 'opacity-100' : 'opacity-0',
+        )}
+        aria-hidden="true"
+        onClick={onClose}
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -69,10 +94,14 @@ export function Drawer({
         aria-labelledby={titleId}
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
+        onTransitionEnd={(event) => {
+          if (event.target === event.currentTarget && !isOpen) setIsMounted(false);
+        }}
         className={cn(
-          'relative z-10 flex h-full w-full flex-col bg-bg-card shadow-xl',
+          'relative z-10 flex h-full w-full flex-col bg-bg-card shadow-xl transition-transform duration-(--transition-base) ease-(--ease-standard)',
           SIZE_CLASSES[size],
           side === 'right' ? 'ml-auto' : 'mr-auto',
+          isVisible ? 'translate-x-0' : side === 'right' ? 'translate-x-full' : '-translate-x-full',
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-border p-4">

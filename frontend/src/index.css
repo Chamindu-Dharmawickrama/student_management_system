@@ -188,6 +188,25 @@ body {
   }
 }
 
+/* Modal / dialog open transition — backdrop fades, panel fades + scales in */
+.animate-modal-backdrop {
+  animation: modal-backdrop-in var(--transition-base) var(--ease-standard);
+}
+.animate-modal-panel {
+  animation: modal-panel-in var(--transition-base) var(--ease-standard);
+}
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.75) translateY(6px);
+  }
+}
+
 /* Screen-reader-only text */
 .sr-only {
   position: absolute;
