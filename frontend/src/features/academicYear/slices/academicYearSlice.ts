@@ -16,12 +16,10 @@ function readPersistedYearId(): string | null {
 
 interface AcademicYearState {
    currentYearId: string | null;
-   isReadOnly: boolean;
 }
 
 const initialState: AcademicYearState = {
    currentYearId: readPersistedYearId(),
-   isReadOnly: false,
 };
 
 const academicYearSlice = createSlice({
@@ -48,13 +46,10 @@ const academicYearSlice = createSlice({
             // ignore
          }
       },
-      setIsReadOnly(state, action: PayloadAction<boolean>) {
-         state.isReadOnly = action.payload;
-      }
    },
 });
 
-export const { setCurrentYearId, clearCurrentYear, setIsReadOnly } =
+export const { setCurrentYearId, clearCurrentYear } =
    academicYearSlice.actions;
 
 export const selectCurrentYearId = (state: RootState) =>

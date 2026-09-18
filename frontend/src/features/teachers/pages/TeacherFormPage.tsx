@@ -16,7 +16,7 @@ import {
   Alert,
   Spinner,
 } from "@/shared/components/ui";
-import { useAppSelector } from "@/app/hooks";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { ROUTES } from "@/constants/app.constants";
 import { getErrorMessage, type SerializedApiError } from "@/types/api.types";
 import {
@@ -33,15 +33,13 @@ import {
 } from "../api/teacherApi";
 import { useGetClassesQuery } from "@/features/classes/api/classesApi";
 import { useGetSubjectsQuery } from "@/features/subjects/api/subjectsApi";
-import { useGetAcademicYearByIdQuery } from "@/features/academicYear/api/academicYearApi";
 
 export default function TeacherFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
 
-  const { currentYearId, isReadOnly } = useAppSelector((state) => state.academicYear);
-  const { data: selectedYear } = useGetAcademicYearByIdQuery(currentYearId!, { skip: !currentYearId });
+  const { year: selectedYear, yearId: currentYearId, isReadOnly, isLoading: isYearLoading } = useSelectedAcademicYear();
 
   // Prevent navigation if in read-only mode for edit
   useEffect(() => {
@@ -178,6 +176,10 @@ export default function TeacherFormPage() {
   const handleRegisterAnother = () => {
     setSuccessEmail(null);
   };
+
+  if (isYearLoading) {
+    return <Spinner fullPage message="Loading academic year..." />;
+  }
 
   if (!currentYearId || !selectedYear) {
     return <Alert variant="warning" title="Warning">Please select an academic year first.</Alert>;

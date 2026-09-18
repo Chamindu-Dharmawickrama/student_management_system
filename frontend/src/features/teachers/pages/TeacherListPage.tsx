@@ -17,13 +17,13 @@ import {
   EmptyState,
   SearchInput,
   Select,
+  Spinner,
 } from "@/shared/components/ui";
 import { useGetTeachersQuery, useDeleteTeacherMutation } from "../api/teacherApi";
 
-import { useGetAcademicYearByIdQuery } from "@/features/academicYear/api/academicYearApi";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { useGetClassesQuery } from "@/features/classes/api/classesApi";
 import { useGetSubjectsQuery } from "@/features/subjects/api/subjectsApi";
-import { useAppSelector } from "@/app/hooks";
 import { ROUTES } from "@/constants/app.constants";
 import { getErrorMessage } from "@/types/api.types";
 import { PageContainer } from "@/shared/components/layout";
@@ -33,8 +33,7 @@ export default function TeacherListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { currentYearId, isReadOnly } = useAppSelector((state) => state.academicYear);
-  const { data: selectedYear } = useGetAcademicYearByIdQuery(currentYearId!, { skip: !currentYearId });
+  const { year: selectedYear, yearId: currentYearId, isReadOnly, isLoading: isYearLoading } = useSelectedAcademicYear();
 
   const page = Number(searchParams.get("page")) || 1;
   const limit = Number(searchParams.get("limit")) || 10;
@@ -101,6 +100,10 @@ export default function TeacherListPage() {
     }
   };
 
+
+  if (isYearLoading) {
+    return <Spinner fullPage message="Loading academic year..." />;
+  }
 
   if (!currentYearId || !selectedYear) {
     return <Alert variant="warning" title="Warning">Please select an academic year first.</Alert>;

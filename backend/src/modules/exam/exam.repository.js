@@ -17,7 +17,7 @@ export const findExamDetailById = async (id) => {
             term: {
                 select: {
                     id: true, name: true, sequence: true, startDate: true, endDate: true,
-                    academicYear: { select: { id: true, name: true } },
+                    academicYear: { select: { id: true, name: true, isCurrent: true } },
                 },
             },
             _count: { select: { markSheets: true } },

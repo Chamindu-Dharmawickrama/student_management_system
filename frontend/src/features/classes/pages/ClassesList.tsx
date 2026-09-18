@@ -10,20 +10,21 @@ import {
   Badge,
   SearchInput,
   Alert,
-  EmptyState
+  EmptyState,
+  Spinner
 } from "@/shared/components/ui";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { useGetClassesQuery } from "../api/classesApi";
 import { ClassModal } from "../components/ClassModal";
 import { DeactivateClassDialog } from "../components/DeactivateClassDialog";
 import type { Class } from "../types/classes.types";
-import { useAppSelector } from "@/app/hooks";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { ROUTES } from "@/constants/app.constants";
 import { PageContainer } from "@/shared/components/layout";
 
 export default function ClassesList() {
   const navigate = useNavigate();
-  const { currentYearId, isReadOnly } = useAppSelector((state) => state.academicYear);
+  const { yearId: currentYearId, isReadOnly, isLoading: isYearLoading } = useSelectedAcademicYear();
   
   const [filters, setFilters] = useUrlFilters({
     page: "1",
@@ -115,6 +116,10 @@ export default function ClassesList() {
       ),
     },
   ];
+
+  if (isYearLoading) {
+    return <Spinner fullPage message="Loading academic year..." />;
+  }
 
   if (!currentYearId) {
     return (

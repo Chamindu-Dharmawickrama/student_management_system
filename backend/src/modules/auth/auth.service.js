@@ -178,7 +178,6 @@ export const forgotPasswordService = async ({ email }) => {
 
     // create a reset url with the raw token
     const resetUrl = `${config.allowedOrigins[0]}/reset-password?token=${rawToken}`;
-    console.log('resetUrl:', resetUrl);
 
     const db = getPrisma();
     await db.$transaction(async (tx) => {

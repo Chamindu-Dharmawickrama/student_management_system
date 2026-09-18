@@ -15,7 +15,7 @@ import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { useGetGradeBandsQuery, useDeleteGradeBandMutation } from "../api/gradeBandsApi";
 import { GradeBandModal } from "../components/GradeBandModal";
 import type { GradeBand } from "../types/gradeBands.types";
-import { useAppSelector } from "@/app/hooks";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { getErrorMessage } from "@/types/api.types";
 import { PageContainer } from "@/shared/components/layout";
 
@@ -109,7 +109,7 @@ function GradeScaleVisualizer({ bands }: { bands: GradeBand[] }) {
 }
 
 export default function GradeBandsList() {
-  const { isReadOnly } = useAppSelector((state) => state.academicYear);
+  const { isReadOnly } = useSelectedAcademicYear();
   const [filters, setFilters] = useUrlFilters({ page: "1", limit: "10" });
 
   const { data, isLoading, isError, error, refetch } = useGetGradeBandsQuery({

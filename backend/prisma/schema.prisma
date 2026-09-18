@@ -46,31 +46,22 @@ enum Gender {
     OTHER
 }
 
-// ================================================================
-// AUTH & IDENTITY
-// (pre-existing models, extended — still the single source of
-// authentication identity for admins, teachers and students; §23)
-// BR-23, BR-24, BR-25, FR-021, FR-022 : credential lifecycle
-// ================================================================
-
 model User {
     id       String  @id @default(cuid())
-    username String  @unique // students: admission number (OD-09). Teachers/admins: school-defined.
+    username String  @unique
     email    String  @unique
     password String?
     role     Role
 
-    authProvider String  @default("local") // local | google
+    authProvider String  @default("local")
 
-    isActive Boolean @default(true) // BR/E-12/E-13: inactive user must not be able to log in
+    isActive Boolean @default(true)
 
-    mustChangePassword Boolean @default(true) // BR-25 / FR-022: forced change after first login
+    mustChangePassword Boolean @default(true)
 
     failedAttempts Int       @default(0)
     lockedUntil    DateTime?
 
-    // Common profile fields shared by admin / teacher / student
-    // (10.3 step 3, 10.4 step 3: "required profile details, including email address")
     firstName   String
     lastName    String
     phone       String?
@@ -99,10 +90,10 @@ model RefreshToken {
     id        String   @id @default(cuid())
     tokenHash String   @unique
     userId    String
-    family    String // UUID grouping all rotations from one login session.
+    family    String
     expiresAt DateTime
 
-    revoked   Boolean  @default(false) // Set to true on logout or token rotation
+    revoked   Boolean  @default(false)
     createdAt DateTime @default(now())
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -113,9 +104,9 @@ model RefreshToken {
 model PasswordReset {
     id        String   @id @default(cuid())
     userId    String
-    tokenHash String   @unique // SHA-256 hash of the raw reset token
+    tokenHash String   @unique
     expiresAt DateTime
-    used      Boolean  @default(false) // One-time use enforcement
+    used      Boolean  @default(false)
     createdAt DateTime @default(now())
 
     user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -126,26 +117,19 @@ model PasswordReset {
 model EmailJob {
     id            String         @id @default(cuid())
     type          String
-    recipient     String // destination email address
-    payload       Json // template-specific data (validated by Zod at enqueue time)
+    recipient     String
+    payload       Json
     status        EmailJobStatus @default(PENDING)
-    attempts      Int            @default(0) // how many send attempts have been made
+    attempts      Int            @default(0)
     lastError     String?
-    providerId    String? // SMTP Message-ID returned by nodemailer (audit / idempotency)
-    lockedAt      DateTime? // set when status=PROCESSING; used for stuck-job recovery
-    nextAttemptAt DateTime? // earliest time the worker may retry (exponential backoff)
+    providerId    String?
+    lockedAt      DateTime?
+    nextAttemptAt DateTime?
     createdAt     DateTime       @default(now())
     updatedAt     DateTime       @updatedAt
 
     @@index([status, nextAttemptAt, createdAt])
 }
-
-// ================================================================
-// SCHOOL CONFIGURATION
-// §23 — config for THIS single independent deployment (BR-01/BR-02).
-// Treat as a singleton table: the application should ensure only one
-// row ever exists.
-// ================================================================
 
 model SchoolConfig {
     id            String   @id @default(cuid())
@@ -154,21 +138,16 @@ model SchoolConfig {
     phone         String?
     email         String?
     logoUrl       String?
-    minGradeLevel Int      @default(6) // OD-01: school teaches grade 6–13
+    minGradeLevel Int      @default(6)
     maxGradeLevel Int      @default(13)
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
 
-// ================================================================
-// ACADEMIC CALENDAR
-// OD-01: 3 terms per year, each term has exactly one term-test exam.
-// ================================================================
-
 model AcademicYear {
     id        String   @id @default(cuid())
-    name      String   @unique // e.g. "2026"
+    name      String   @unique
     startDate DateTime
     endDate   DateTime
     isCurrent Boolean  @default(false)
@@ -190,31 +169,24 @@ model AcademicYear {
 model Term {
     id             String   @id @default(cuid())
     academicYearId String
-    name           String // e.g. "Semester 1"
-    sequence       Int // 1–3 (OD-01)
+    name           String
+    sequence       Int
     startDate      DateTime
     endDate        DateTime
 
     academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-    exam         Exam? // 1:1 since Exam.@@unique([termId]) — one exam per term
+    exam         Exam?
     reports      Report[]
 
     @@unique([academicYearId, sequence])
     @@index([academicYearId])
 }
 
-// The system deliberately does NOT track a per-subject exam timetable —
-// only the exam PERIOD for the whole term. Both dates start null (set by
-// the admin once the school finalizes the period; unknown when the Exam is
-// auto-provisioned alongside its Term). Mark entry unlocks once
-// endDate has passed (see marks.service.js) — there is no separate
-// "published"/status flag; a Mark becomes visible to its student the
-// moment it actually has a value (see marks.repository.js#findMarksForStudent).
 model Exam {
     id        String    @id @default(cuid())
     termId    String
-    name      String // e.g. "Term Test 1" (OD-02: assessment type = term test)
-    sequence  Int // mirrors the parent Term's sequence (1-3) — exactly one Exam per Term
+    name      String
+    sequence  Int
     startDate DateTime?
     endDate   DateTime?
 
@@ -225,30 +197,21 @@ model Exam {
     @@unique([termId])
 }
 
-// ================================================================
-// SCHOOL STRUCTURE — grade levels / classes / subjects
-// ================================================================
-
 model GradeLevel {
     id    String @id @default(cuid())
-    level Int    @unique // 6–13 (OD-01)
-    name  String // e.g. "Grade 10"
+    level Int    @unique
+    name  String
 
     classes  Class[]
     subjects Subject[] @relation("GradeLevelSubjects")
 }
 
-// A Class is scoped to one academic year, which is what lets us keep
-// clean historical class membership (OD-06) and a class-teacher
-// assignment that only ever applies for that one year (OD-08: cannot
-// be replaced mid-year, but a new Class row next year can have a
-// different class teacher).
 model Class {
     id             String  @id @default(cuid())
-    name           String // e.g. "12A"
+    name           String
     gradeLevelId   String
     academicYearId String
-    classTeacherId String? // BR-12/FR-012: at most one active class teacher
+    classTeacherId String?
     isActive       Boolean @default(true)
 
     gradeLevel   GradeLevel      @relation(fields: [gradeLevelId], references: [id])
@@ -261,10 +224,6 @@ model Class {
     markSheets           MarkSheet[]
     reports              Report[]
 
-    // BR-11/FR-011: a teacher can be the responsible class teacher of at
-    // most one class per year. Postgres treats each NULL as distinct in
-    // a unique index, so any number of classes with classTeacherId = NULL
-    // remain allowed.
     @@unique([academicYearId, classTeacherId])
     @@unique([academicYearId, gradeLevelId, name])
     @@index([academicYearId])
@@ -274,7 +233,7 @@ model Subject {
     id       String  @id @default(cuid())
     name     String  @unique
     code     String? @unique
-    isActive Boolean @default(true) // BR-05: deactivate, never physically delete once referenced
+    isActive Boolean @default(true)
 
     gradeLevels GradeLevel[] @relation("GradeLevelSubjects")
 
@@ -286,10 +245,6 @@ model Subject {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 }
-
-// ================================================================
-// TEACHERS
-// ================================================================
 
 model TeacherProfile {
     id            String    @id @default(cuid())
@@ -306,11 +261,6 @@ model TeacherProfile {
     markSheetsOwned        MarkSheet[]
 }
 
-// BR-09/FR-009: a teacher has exactly ONE active subject at a time.
-// Historized per academic year so OD-07 (subject may change next year,
-// preserving previous records) is satisfied without losing history.
-// The unique constraint below is what actually enforces "one active
-// subject per teacher" for a given year (also see E-01).
 model TeacherSubjectAssignment {
     id             String    @id @default(cuid())
     teacherId      String
@@ -328,12 +278,6 @@ model TeacherSubjectAssignment {
     @@index([subjectId])
 }
 
-// BR-14/BR-16-18: the authorization record a mark entry is checked
-// against — teacher + subject + class + year. The service layer MUST
-// verify subjectId here matches the teacher's active
-// TeacherSubjectAssignment.subjectId for the same academicYearId
-// (BR-17) — that specific cross-row equality can't be expressed as a
-// plain DB constraint.
 model TeachingAssignment {
     id             String    @id @default(cuid())
     teacherId      String
@@ -354,21 +298,14 @@ model TeachingAssignment {
     @@index([teacherId])
 }
 
-// ================================================================
-// STUDENTS
-// ================================================================
-
 model StudentProfile {
     id              String   @id @default(cuid())
     userId          String   @unique
-    admissionNumber String   @unique // OD-09: username is based on this
+    admissionNumber String   @unique
     admissionDate   DateTime @default(now())
     guardianName    String?
     guardianPhone   String?
 
-    // Denormalized pointer to the student's current class, kept in sync
-    // with the StudentClassEnrollment row where isCurrent = true. Exists
-    // purely for cheap "who's in this class right now" reads.
     currentClassId String?
 
     user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -382,8 +319,6 @@ model StudentProfile {
     @@index([currentClassId])
 }
 
-// OD-06: retain year/term-specific class history when a student moves
-// from one class to another (e.g. 12A -> 12B).
 model StudentClassEnrollment {
     id             String    @id @default(cuid())
     studentId      String
@@ -397,15 +332,10 @@ model StudentClassEnrollment {
     class        Class          @relation(fields: [classId], references: [id])
     academicYear AcademicYear   @relation(fields: [academicYearId], references: [id])
 
-    // A mid-year transfer produces a second row for the same
-    // (studentId, academicYearId) pair. The service layer is
-    // responsible for setting isCurrent = false on the previous row
-    // (and updating StudentProfile.currentClassId) when that happens.
     @@index([studentId, academicYearId])
     @@index([classId])
 }
 
-// 10.4 step 5: "administrator adds the subjects that student chooses".
 model StudentSubjectSelection {
     id             String   @id @default(cuid())
     studentId      String
@@ -421,20 +351,12 @@ model StudentSubjectSelection {
     @@unique([studentId, subjectId, academicYearId])
 }
 
-// ================================================================
-// MARKS (section 13) + submit/lock/approval workflow (OD-05)
-// ================================================================
-
-// One MarkSheet = one teacher's mark-entry batch for one
-// subject + class + exam. This is the unit that moves through the
-// draft -> submitted -> approved/rejected -> locked workflow (OD-05),
-// rather than tracking workflow state per individual mark.
 model MarkSheet {
     id        String          @id @default(cuid())
     subjectId String
     classId   String
     examId    String
-    teacherId String // owner/entrant — must hold the matching TeachingAssignment (BR-16)
+    teacherId String
     status    MarkSheetStatus @default(DRAFT)
 
     submittedAt     DateTime?
@@ -462,10 +384,10 @@ model Mark {
     id            String   @id @default(cuid())
     markSheetId   String
     studentId     String
-    marksObtained Decimal? @db.Decimal(5, 2) // OD-03: 0–100, configurable max
+    marksObtained Decimal? @db.Decimal(5, 2)
     maxMarks      Int      @default(100)
     isAbsent      Boolean  @default(false)
-    grade         String? // resolved letter grade, snapshotted at save time — see GradeBand note below
+    grade         String?
     remarks       String?
 
     markSheet MarkSheet      @relation(fields: [markSheetId], references: [id], onDelete: Cascade)
@@ -478,13 +400,9 @@ model Mark {
     @@index([studentId])
 }
 
-// OD-04: grades / pass-fail boundaries — admin-configurable lookup
-// table. Mark.grade stores a point-in-time snapshot resolved against
-// this table, so editing boundaries later doesn't retroactively change
-// marks/report cards that already went out.
 model GradeBand {
     id          String  @id @default(cuid())
-    grade       String // e.g. "A", "B", "C", "F"
+    grade       String
     minMark     Int
     maxMark     Int
     gradePoint  Float?
@@ -493,10 +411,6 @@ model GradeBand {
 
     @@index([minMark, maxMark])
 }
-
-// ================================================================
-// REPORTS (section 16, OD-13: PDF + Excel export)
-// ================================================================
 
 model Report {
     id             String       @id @default(cuid())
@@ -523,17 +437,10 @@ model Report {
     @@index([classId])
 }
 
-// ================================================================
-// AUDIT LOG
-// Not explicitly required by the spec, but supports §25's "keep
-// authorization on the server" principle and AT-15 (rejected
-// unauthorized/crafted requests should be traceable).
-// ================================================================
-
 model AuditLog {
     id            String   @id @default(cuid())
-    action        String // e.g. "TEACHER_CREATED", "MARK_APPROVED", "STUDENT_DEACTIVATED"
-    entityType    String // e.g. "Teacher", "Mark", "Class"
+    action        String
+    entityType    String
     entityId      String
     performedById String?
     metadata      Json?

@@ -13,14 +13,14 @@ import {
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { useGetAcademicYearsPaginatedQuery } from "../api/academicYearApi";
 import { AcademicYearModal } from "../components/AcademicYearModal";
-import { useAppSelector } from "@/app/hooks";
+import { useSelectedAcademicYear } from "../hooks/useSelectedAcademicYear";
 import { formatDate } from "@/shared/utils/dateUtils";
 import type { AcademicYearListItem as AcademicYear } from "../types/academicYear.types";
 import { PageContainer } from "@/shared/components/layout";
 
 export default function AcademicYearsList() {
   const navigate = useNavigate();
-  const { isReadOnly } = useAppSelector((state) => state.academicYear);
+  const { isReadOnly } = useSelectedAcademicYear();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [filters, setFilters] = useUrlFilters({

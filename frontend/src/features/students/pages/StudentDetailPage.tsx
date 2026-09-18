@@ -25,8 +25,7 @@ import {
 import { useGetStudentByIdQuery } from "../api/studentApi";
 import { SubjectSelectionManager } from "../components/SubjectSelectionManager";
 import { ROUTES } from "@/constants/app.constants";
-import { useAppSelector } from "@/app/hooks";
-import { useGetAcademicYearByIdQuery } from "@/features/academicYear/api/academicYearApi";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { formatDate } from "@/shared/utils/dateUtils";
 import { PageContainer } from "@/shared/components/layout";
 
@@ -36,14 +35,15 @@ export default function StudentDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
 
-  const { currentYearId, isReadOnly } = useAppSelector((state) => state.academicYear);
-  const { data: selectedYear } = useGetAcademicYearByIdQuery(currentYearId!, { skip: !currentYearId });
+  const { year: selectedYear, yearId: currentYearId, isReadOnly, isLoading: isYearLoading } = useSelectedAcademicYear();
 
   const { data: studentData, isLoading, error } = useGetStudentByIdQuery(id!);
 
   const handleTabChange = (tab: string) => {
     setSearchParams({ tab });
   };
+
+  if (isYearLoading) return <Spinner fullPage message="Loading academic year..." />;
 
   if (!currentYearId || !selectedYear) {
     return <Alert variant="warning" title="Warning">Please select an academic year first.</Alert>;

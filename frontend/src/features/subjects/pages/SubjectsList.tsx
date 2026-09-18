@@ -15,11 +15,11 @@ import { useGetSubjectsQuery } from "../api/subjectsApi";
 import { SubjectModal } from "../components/SubjectModal";
 import { DeleteSubjectDialog } from "../components/DeleteSubjectDialog";
 import type { Subject } from "../types/subjects.types";
-import { useAppSelector } from "@/app/hooks";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { PageContainer } from "@/shared/components/layout";
 
 export default function SubjectsList() {
-  const { isReadOnly } = useAppSelector((state) => state.academicYear);
+  const { isReadOnly } = useSelectedAcademicYear();
   const [filters, setFilters] = useUrlFilters({
     page: "1",
     limit: "10",

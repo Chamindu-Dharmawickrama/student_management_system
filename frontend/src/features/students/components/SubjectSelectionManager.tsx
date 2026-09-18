@@ -3,10 +3,9 @@ import { toast } from "react-hot-toast";
 import { Button, Card, MultiSelect, Alert, Spinner, ConfirmDialog } from "@/shared/components/ui";
 import { useGetSubjectsQuery } from "@/features/subjects/api/subjectsApi";
 import { useGetStudentSubjectSelectionsQuery, useUpdateStudentSubjectSelectionsMutation } from "../api/studentApi";
-import { useGetAcademicYearByIdQuery } from "@/features/academicYear/api/academicYearApi";
+import { useSelectedAcademicYear } from "@/features/academicYear/hooks/useSelectedAcademicYear";
 import { getErrorMessage } from "@/types/api.types";
 import { BookOpen } from "lucide-react";
-import { useAppSelector } from "@/app/hooks";
 
 interface SubjectSelectionManagerProps {
   studentId: string;
@@ -15,8 +14,7 @@ interface SubjectSelectionManagerProps {
 
 export function SubjectSelectionManager({ studentId, studentName }: SubjectSelectionManagerProps) {
   // Use global academic year context
-  const { currentYearId, isReadOnly } = useAppSelector((state) => state.academicYear);
-  const { data: selectedYear } = useGetAcademicYearByIdQuery(currentYearId!, { skip: !currentYearId });
+  const { year: selectedYear, yearId: currentYearId, isReadOnly, isLoading: isYearLoading } = useSelectedAcademicYear();
 
   const { data: selectionsData, isLoading: isLoadingSelections, isFetching: isFetchingSelections } = useGetStudentSubjectSelectionsQuery(
     { id: studentId, academicYearId: currentYearId ?? "" },
@@ -97,6 +95,16 @@ export function SubjectSelectionManager({ studentId, studentName }: SubjectSelec
   const handleCancel = () => {
     setSelectedIds([...currentSelections]);
   };
+
+  if (isYearLoading) {
+    return (
+      <Card className="p-4 sm:p-6">
+        <div className="flex justify-center p-8">
+          <Spinner message="Loading academic year..." />
+        </div>
+      </Card>
+    );
+  }
 
   if (!currentYearId || !selectedYear) {
     return <Alert variant="warning" title="Warning">No academic year selected.</Alert>;

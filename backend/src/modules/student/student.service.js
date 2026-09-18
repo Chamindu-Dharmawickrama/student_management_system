@@ -92,8 +92,6 @@ export const registerStudentService = async (data) => {
                 subjectIds: uniqueSubjectIds,
             });
 
-            console.log(`--- UserName: ${created.username}, password: ${temporaryPassword} ---`); // For debugging only; remove in production.
-
             await sendInitialCredentials(created, temporaryPassword, "STUDENT", tx);
 
             return created;

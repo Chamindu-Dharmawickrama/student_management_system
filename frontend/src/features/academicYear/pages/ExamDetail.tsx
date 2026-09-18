@@ -24,14 +24,12 @@ import {
 import { updateExamSchema, type UpdateExamInput } from "../validation/academicYear.schemas";
 import { toISODateString, fromISODateString, formatDateRange } from "@/shared/utils/dateUtils";
 import { ROUTES } from "@/constants/app.constants";
-import { useAppSelector } from "@/app/hooks";
 import { getErrorMessage } from "@/types/api.types";
 import { PageContainer } from "@/shared/components/layout";
 
 export default function ExamDetail() {
   const { id } = useParams<{ id: string }>();
-  const { isReadOnly } = useAppSelector((state) => state.academicYear);
-  
+
   const { data: exam, isLoading, isError, error, refetch } = useGetExamByIdQuery(id!, {
     skip: !id,
   });
@@ -57,6 +55,10 @@ export default function ExamDetail() {
   if (isError || !exam) {
     return <ErrorState error={error} onRetry={refetch} />;
   }
+
+  // Editing is locked once this exam's own academic year is no longer the
+  // current one — independent of whichever year is selected in the header.
+  const isReadOnly = !exam.academicYear.isCurrent;
 
   const term = exam.term;
   const isTermConfigured = term.startDate && term.endDate;

@@ -49,6 +49,7 @@ export interface ExamDetailDTO extends Exam {
   academicYear: {
     id: string;
     name: string;
+    isCurrent: boolean;
   };
   markSheetCount: number;
 }

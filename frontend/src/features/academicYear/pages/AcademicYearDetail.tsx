@@ -22,7 +22,6 @@ import type { UpdateTermInput } from "../validation/academicYear.schemas";
 import { toISODateString, fromISODateString, formatDateRange } from "@/shared/utils/dateUtils";
 import type { Term, Exam } from "../types/academicYear.types";
 import { ROUTES } from "@/constants/app.constants";
-import { useAppSelector } from "@/app/hooks";
 import { getErrorMessage } from "@/types/api.types";
 import { PageContainer } from "@/shared/components/layout";
 
@@ -164,8 +163,7 @@ function TermEditor({
 
 export default function AcademicYearDetail() {
   const { id } = useParams<{ id: string }>();
-  const { isReadOnly } = useAppSelector((state) => state.academicYear);
-  
+
   const { data: year, isLoading, isError, error, refetch } = useGetAcademicYearByIdQuery(id!, {
     skip: !id,
   });
@@ -177,6 +175,10 @@ export default function AcademicYearDetail() {
   if (isError || !year) {
     return <ErrorState error={error} onRetry={refetch} />;
   }
+
+  // Editing is locked once this is no longer the current academic year —
+  // independent of whichever year is selected in the header.
+  const isReadOnly = !year.isCurrent;
 
   // Sort terms by sequence
   const sortedTerms = [...year.terms].sort((a, b) => a.sequence - b.sequence);
