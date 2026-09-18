@@ -328,28 +328,6 @@ No `teacherId`, `subjectId` or `classId` — the server derives them. Responses 
 
 ---
 
-## Project status and limitations
-
-**Not deployed**, and there is **no automated test suite, CI, Dockerfile or deployment config**. The backend `npm test` is a placeholder. Verification so far is manual against a local backend, plus the Postman collection. `npm run build` (type-check included) passes.
-
-The code is partly ready for deployment: required-env checks in production, `trust proxy`, graceful shutdown, `/health`, boot retry, JSON logs, `migrate deploy`, and an idempotent seed. Still missing: containers or a platform target, managed Postgres/Redis, real SMTP, secret management, TLS.
-
-Known gaps:
-
-- `npm run lint` **fails** in `frontend/` (17 errors, 4 warnings): 14 `no-explicit-any` violations plus React Hooks rule errors in `GradebookGrid`, `StudentFormPage`, `TeacherFormPage`, `ClassResultsTab`, `SubjectSelectionManager`, `StudentMarksPage`, `TeacherMarksheetsPage`, `TeacherStudentsPage`. The planned security/a11y/performance hardening pass hasn't been done yet.
-- **Excel export is API-only**; the UI offers PDF.
-- **Google sign-in isn't implemented.** `authProvider` exists and `google-auth-library` is installed but unused.
-- **`SchoolConfig` has no endpoint**, so the defaults apply. **`AuditLog`** is only surfaced as the dashboard activity feed. **`Report.filePath`** is always null because exports aren't persisted.
-- **Jobs are in-process** (`setInterval`): multiple replicas would each run a worker. **Report rendering is synchronous** in the request path (10/min/user).
-- **No file upload** behind `photoUrl` / `logoUrl`. **Single-school**, no tenancy.
-- Leftover naming from an earlier project: package name `auth-system-backend`, default `EMAIL_FROM_NAME` `NoteVault`.
-
-**Next steps (implied by the gaps above):** fix lint and enforce it as a gate; add tests for the scope resolvers, the state machine, grade-band overlap and reconciliation, plus integration tests on the authorization boundaries; add CI, containers and deployment.
-
-**Possible extensions (not committed work):** a `SchoolConfig` screen and an audit browser; Excel download in the UI and persisted reports; an out-of-process worker or queue; photo and logo upload; attendance, timetabling and guardian accounts.
-
----
-
 ## Documentation & license
 
 - [`frontend/README.md`](frontend/README.md) — frontend stack and scripts
